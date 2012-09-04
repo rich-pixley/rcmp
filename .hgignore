@@ -1,0 +1,9 @@
+syntax: glob
+
+*.pyc
+*~
+.svn
+TAGS
+rcmp-dev
+rcmp.egg-info
+stamp-*

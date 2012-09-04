@@ -1,0 +1,18 @@
+def withLogger(cls):
+...     @staticmethod
+...     def log(msg):
+...         print msg
+...     cls.log = log
+...     return cls
+... 
+>>> @withLogger
+... class C(object):
+...     def m(self):
+...         self.log("I am doing a thing!")
+... 
+>>> c = C()
+>>> c.m()
+I am doing a thing!
+
+
+def __init__(cls, name, bases, attrs): cls.logger = blah_blah(cls.__name__)
