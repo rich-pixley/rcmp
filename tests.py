@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <11-Jul-2012 10:31:25 PDT by rich.pixley@palm.com>
+# Time-stamp: <01-Jul-2013 17:31:32 PDT by rich@noir.com>
 
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
@@ -36,12 +36,16 @@ from nose.tools import assert_true, assert_false, assert_equal, assert_raises, r
 
 import rcmp
 
-### uncomment these for verbose logging
-# import logging
-# logger = logging.getLogger()
-# handler = logging.StreamHandler()
-# handler.setLevel(logging.DEBUG)
-# logger.addHandler(handler)
+verbose_logging = False
+if verbose_logging:
+    import logging
+    logger = logging.getLogger()
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+
+def isfile(filename):
+    assert os.path.isfile(filename), 'missing {}'.format(filename)
 
 class testBasics(object):
     nosuch = 'nosuchfileordirectory'
@@ -134,8 +138,12 @@ class testBasics(object):
             ]).cmp(), False)
 
     def testElf(self):
-        assert_equal(rcmp.Comparison(lname=os.path.join('testfiles', 'left', 'goodfork.o'),
-                                     rname=os.path.join('testfiles', 'right', 'goodfork.o'),
+        lname = os.path.join('testfiles', 'left', 'main.o')
+        rname = os.path.join('testfiles', 'right', 'main.o')
+        isfile(lname)
+        isfile(rname)
+        assert_equal(rcmp.Comparison(lname=lname,
+                                     rname=rname,
                                      comparators=[
         				rcmp.ElfComparator(),
                                      ]).cmp(), rcmp.Same)
@@ -303,7 +311,9 @@ class testAr(object):
     second = 'second.a'
     third = 'third.a'
     left = os.path.join('testfiles', 'left', 'archive.a')
+    isfile(left)
     right = os.path.join('testfiles', 'right', 'archive.a')
+    isfile(right)
 
     def setUp(self):
         with open(self.empty, 'wb') as f:
@@ -369,8 +379,12 @@ class SimpleAbstract(object):
     def comparators(self):
         return []
 
+    sides = ['left', 'right']
+
     def __init__(self):
-        (self.lefts, self.rights) = [[os.path.join('testfiles', side, filename) for filename in self.filenames] for side in ['left', 'right']]
+        (self.lefts, self.rights) = [[os.path.join('testfiles', side, filename) for filename in self.filenames] for side in self.sides]
+        for f in self.lefts + self.rights:
+            isfile(f)
 
     def testIdentical(self):
         for left in self.lefts:
@@ -389,21 +403,23 @@ class SimpleAbstract(object):
 
 class testEmpty(SimpleAbstract):
     filenames = ['empty']
+
     comparators = [
         rcmp.EmptyFileComparator(),
     ]
 
 class testAr2(SimpleAbstract):
-    filenames = ['third.a']
+    filenames = ['archive.a']
+
     comparators = [
         rcmp.BitwiseComparator(),
         rcmp.ArMemberMetadataComparator(),
         rcmp.ArComparator(),
     ]
 
-    def __init__(self):
+    def setUp(self):
         for side in ['left', 'right']:
-            fname = os.path.join('testfiles', side, 'empty')
+            fname = os.path.join('testfiles', side, 'stumper')
 
             try:
                 os.remove(fname)
@@ -414,26 +430,39 @@ class testAr2(SimpleAbstract):
                 pass
             os.chmod(fname, 0)
 
-        SimpleAbstract.__init__(self)
+    def tearDown(self):
+        for side in ['left', 'right']:
+            try:
+                os.remove(os.path.join('testfiles', side, 'stumper'))
+
+            except OSError, val:
+                if val is 2:
+                    pass
+                else:
+                    raise
 
 class testAM(SimpleAbstract):
     filenames = ['Makefile']
     comparators = [rcmp.AMComparator()]
 
 class testConfigLog(SimpleAbstract):
-    filenames = ['config.log', '2config.log', 'config.status', 'db-config.log', '3config.log']
+    # don't know what these were.  :(.
+    not_filenames = ['2config.log', 'db-config.log', '3config.log' ]
+    filenames = ['config.log', 'config.status' ]
     comparators = [rcmp.ConfigLogComparator()]
 
-class testKernelConf(SimpleAbstract):
-    filenames = ['auto.conf', 'autoconf.h']
-    comparators = [rcmp.KernelConfComparator()]
+# FIXME: need some kernel conf files.
+# class testKernelConf(SimpleAbstract):
+#     filenames = ['auto.conf', 'autoconf.h']
+#     comparators = [rcmp.KernelConfComparator()]
 
 class testGzip(SimpleAbstract):
-    filenames = ['config_data.gz', 'yo.gz.gz.gz']
+    filenames = ['Makefile.in.gz', 'yo.gz.gz.gz']
     comparators = [rcmp.GzipComparator(), rcmp.BitwiseComparator()]
 
 class testZip(SimpleAbstract):
-    filenames = ['jarfile.jar', 'tst_unzip_file.zip', 'third.zip']
+    #filenames = ['jarfile.jar', 'tst_unzip_file.zip', 'third.zip']
+    filenames = ['zipfile.zip']
     comparators = [
         rcmp.ZipMemberMetadataComparator(),
         rcmp.ZipComparator(),
@@ -464,12 +493,13 @@ class testZip(SimpleAbstract):
         for fname in self.fnames:
             os.remove(fname)
 
-class testDateBlot(SimpleAbstract):
-    filenames = ['icu-config', 'acinclude.m4', 'compile.h']
-    comparators = [rcmp.DateBlotBitwiseComparator()]
+# FIXME: need some test files
+# class testDateBlot(SimpleAbstract):
+#     filenames = ['icu-config', 'acinclude.m4', 'compile.h']
+#     comparators = [rcmp.DateBlotBitwiseComparator()]
 
 class testCpio(SimpleAbstract):
-    filenames = ['initramfs_data.cpio', 'third.cpio']
+    filenames = ['cpiofile.cpio']
     comparators = [
         rcmp.CpioMemberMetadataComparator(),
         rcmp.CpioComparator(),
@@ -477,18 +507,18 @@ class testCpio(SimpleAbstract):
         ]
 
 class testTar(SimpleAbstract):
-    filenames = ['foo.tar', 'busybox_testsuite.tgz', 'third.tar']
+    filenames = ['tarfile.tar']
     comparators = [
         rcmp.TarMemberMetadataComparator(),
         rcmp.TarComparator(),
         rcmp.BitwiseComparator(),
         ]
 
-def testNew():
-    assert_equal(rcmp.Comparison(lname='testfiles/left/libpulse_0.9.22-6_opal.ipk',
-                                 rname='testfiles/right/libpulse_0.9.22-6_opal.ipk',
-                                 ignores=['*/temp']).cmp(),
-                 rcmp.Same)
+# def testNew():
+#     assert_equal(rcmp.Comparison(lname='testfiles/left/libpulse_0.9.22-6_opal.ipk',
+#                                  rname='testfiles/right/libpulse_0.9.22-6_opal.ipk',
+#                                  ignores=['*/temp']).cmp(),
+#                  rcmp.Same)
 
 if __name__ == '__main__':
     nose.main()

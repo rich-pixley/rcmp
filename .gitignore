@@ -1,0 +1,8 @@
+*.egg
+*.pyc
+*~
+build
+rcmp-dev-*
+rcmp.egg-info
+setuptools-*.tar.gz
+stamp-*

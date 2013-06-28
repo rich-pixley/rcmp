@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <11-Jul-2012 10:31:07 PDT by rich.pixley@palm.com>
+# Time-stamp: <01-Jul-2013 15:36:13 PDT by rich@noir.com>
 
+# Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,9 +22,10 @@
 Rcmp is a more flexible replacement for filecmp.
 
 The basic idea here is that depending on content, files don't have to
-be bitwise identical in order to be equivalent or "close enough".
-Rcmp includes a flexible extension structure to allow for a living set
-of file comparisons.
+be bitwise identical in order to be equivalent or "close enough" for
+many purposes like comparing the results of two builds.  Rcmp includes
+a flexible extension structure to allow for a living set of file
+comparisons.
 
 The general idea is that each comparable object, (generally, a file or
 a directory), has a list of potential comparison algorythms called
@@ -124,7 +126,7 @@ class Items(object):
 class Item(object):
     """
     Represents an item in the file system, (or in an archive, etc).
-    Used to allow for caching the results from calls like stat and for
+    This is used for caching the results from calls like stat and for
     holding content.
     """
 
@@ -633,6 +635,7 @@ class NoSuchFileComparator(Comparator):
     """
     Objects are different if either one is missing.
     """
+    # FIXME: perhaps this should return same if both are missing.
 
     def _applies(self, thing):
         return True
@@ -1312,7 +1315,7 @@ class _ComparisonCommon(object):
  
     comparators is a list of comparators to be used
     ignores is a list of fnmatch style wildcards - file names in this list will be skipped
-    exit_asap asks that we exit as soon as we have a return value, (exit_asap=False is like "make -k")
+    exit_asap asks that we exit as soon as we have a return value, (exit_asap=False is like "make -k" in the sense that it reports on all differences rather than stopping after the first.)
     """
 
     default_comparators = [
@@ -1347,11 +1350,7 @@ class _ComparisonCommon(object):
                  ignores=[],
                  exit_asap=False):
 
-        self.comparators = comparators
-
-        if self.comparators is False:
-            self.comparators = self.default_comparators
-
+        self.comparators = comparators if comparators is not False else self.default_comparators
         self.ignores = ignores
         self.exit_asap = exit_asap
 
@@ -1372,13 +1371,14 @@ class Comparison(_ComparisonCommon):
     @property
     def pair(self):
         """
-        a 2 item list
+        a 2 item list of the items to be compared
         """
         return self._pair
 
 
     @pair.setter
     def pair(self, value):
+        """setter"""
         self._pair = value
 
 
@@ -1411,6 +1411,7 @@ class Comparison(_ComparisonCommon):
                 raise Ignoring
 
     def cmp(self):
+        """compare our items"""
         for comparator in self.comparators:
             if not comparator.applies(self):
                 self.logger.log(logging.DEBUG, 'does not apply - {0}\n{1}'.format(comparator,

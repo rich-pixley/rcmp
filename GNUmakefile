@@ -1,5 +1,6 @@
-# Time-stamp: <11-Jul-2012 10:29:15 PDT by rich.pixley@palm.com>
+# Time-stamp: <01-Jul-2013 15:59:58 PDT by rich@noir.com>
 
+# Copyright © 2013 K Richard Pixley <rich@noir.com>
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,83 +15,48 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-default: all
+all: build
+unames := $(shell uname -s)
 
-unamem := $(shell uname -m)
+packagename := rcmp
 
-venv := rcmp-dev
+venvsuffix := 
+
+pyver := 2.7
+vpython := python${pyver}
+
+ifeq (${unames},Darwin)
+virtualenv := /Library/Frameworks/Python.framework/Versions/${pyver}/bin/virtualenv
+else
+ifeq (${unames},Linux)
+virtualenv := virtualenv -p ${vpython}
+else
+$(error Unrecognized system)
+endif
+endif
+
+venvbase := ${packagename}-dev
+venv := ${venvbase}-${pyver}
 pythonbin := ${venv}/bin
-
 python := ${pythonbin}/python
+
 activate := . ${pythonbin}/activate
+setuppy := ${activate} && python setup.py
+pypitest := -r https://testpypi.python.org/pypi
+
 pydoctor := ${venv}/bin/pydoctor
-epydoc := ${venv}/bin/epydoc
-
-arpy_egg := ${venv}/lib/python2.6/site-packages/arpy-0.2.0-py2.6.egg
-cpiofile_egg := ${venv}/lib/python2.6/site-packages/cpiofile-0.003-py2.6.egg
-elffile_egg := ${venv}/lib/python2.6/site-packages/elffile-0.005-py2.6.egg
-nose_egg := ${venv}/lib/python2.6/site-packages/nose-1.0.0-py2.6.egg
-
-all: ${nose_egg} ${elffile_egg} ${cpiofile_egg} #${arpy_egg}
-
-define eggmake
-$(1): ${$(1)_egg}
-${$(1)_egg}: ${python}
-	${activate} && easy_install -U $(1)
-endef
-
-$(eval $(call eggmake,arpy))
-$(eval $(call eggmake,cpiofile))
-$(eval $(call eggmake,elffile))
-$(eval $(call eggmake,nose))
-
-stamp-maverick: stamp-apt
-	sudo apt-get install --yes python-nose
-	touch $@-new && mv $@-new $@
 
 .PHONY: ve
 ve: ${python}
-${python}: stamp-virtualenv
-	virtualenv --no-site-packages rcmp-dev
+${python}:
+	${virtualenv} --no-site-packages ${venv}
+	find ${venv} -name distribute\* -o -name setuptools\* \
+		| xargs rm -rf
+	${activate} && python distribute_setup.py
 
-stamp-virtualenv: stamp-apt
-	sudo easy_install -U virtualenv
-	touch $@-new && mv $@-new $@
-
-# firefox is only needed for reading the doc
-DEBIANS_NOT := \
-	apt-file \
-	build-essential \
-	bzr \
-	debhelper \
-	firefox \
-	libapache2-mod-wsgi \
-	libspread1 \
-	libspread1-dev \
-	python-dev \
-	python-epydoc \
-	python-nevow \
-	python-twisted \
-	python-yaml \
-	yaml-mode \
-	libyaml-dev \
-	spread \
-
-DEBIANS := \
-	python-setuptools \
-	python-sphinx \
-	python-virtualenv \
-
-stamp-apt:
-	sudo apt-get install --yes ${DEBIANS}
-	touch $@-new && mv $@-new $@
-
-clean:
-	rm -rf ${venv} stamp-virtualenv stamp-apt pydoctor build \
-		dist rcmp.egg-info stamp-lucid *.pyc apidocs
-
-check: all
-	${activate} && time python setup.py nosetests
+clean: clean_docs
+	rm -rf ${venvbase}* .stamp-virtualenv .stamp-apt build \
+		dist ${packagename}.egg-info *.pyc apidocs *.egg *~
 
 doc: ${pydoctor}
 	${activate} && pydoctor --add-module=rcmp.py \
@@ -100,3 +66,102 @@ doc: ${pydoctor}
 
 setuppy.%: ${python}
 	${activate} && python setup.py $*
+
+.PHONY: build
+build: rcmp.egg-info/SOURCES.txt
+
+rcmp.egg-info/SOURCES.txt: rcmp.py ${ve}
+	${setuppy} build
+
+.PHONY: check
+check: ${python}
+	${setuppy} nosetests
+
+sdist_format := bztar
+
+.PHONY: sdist
+sdist: ${ve}
+	${setuppy} sdist --formats=${sdist_format}
+
+.PHONY: bdist
+bdist: ${ve}
+	${setuppy} bdist
+
+.PHONY: develop
+develop: ${venv}/lib/${vpython}/site-packages/${packagename}.egg-link
+
+${venv}/lib/${vpython}/site-packages/${packagename}.egg-link: ${python}
+	${setuppy} --version 
+	#${setuppy} lint
+	${setuppy} develop
+
+.PHONY: bdist_upload
+bdist_upload: ${python} 
+	${setuppy} bdist_egg upload ${pypitest}
+
+.PHONY: sdist_upload
+sdist_upload: ${ve}
+	${setuppy} sdist --formats=${sdist_format} upload ${pypitest}
+
+.PHONY: register
+register: ${python}
+	${setuppy} $@ ${pypitest}
+
+long.html: long.rst
+	${setuppy} build
+	docutils-*-py${pyver}.egg/EGG-INFO/scripts/rst2html.py $< > $@-new && mv $@-new $@
+
+long.rst: ; ${setuppy} --long-description > $@-new && mv $@-new $@
+
+
+.PHONY: bdist_egg
+bdist_egg: ${ve}
+	${setuppy} $@
+
+doctrigger = docs/build/html/index.html
+
+.PHONY: docs
+docs: ${doctrigger}
+clean_docs:; (cd docs && $(MAKE) clean)
+
+${doctrigger}: docs/source/index.rst ${packagename}.py
+	${setuppy} build_sphinx
+	#(cd docs && $(MAKE) html)
+
+.PHONY: lint
+lint: ${python}
+	${setuppy} $@
+
+.PHONY: install
+install: ${python}
+	${setuppy} $@
+
+.PHONY: build_sphinx
+build_sphinx: ${python}
+	${setuppy} $@
+
+.PHONY: nosetests
+nosetests: ${python}
+	${setuppy} $@
+
+.PHONY: test
+test: ${python}
+	${setuppy} $@
+
+.PHONY: docs_upload upload_docs
+upload_docs docs_upload: ${doctrigger}
+	${setuppy} upload_docs ${pypitest}
+
+supported_versions := \
+	2.6 \
+	2.7 \
+	3.0 \
+	3.1 \
+	3.2 \
+	3.3 \
+
+bigcheck: ${supported_versions:%=bigcheck-%}
+bigcheck-%:; $(MAKE) pyver=$* check
+
+bigupload: register sdist_upload ${supported_versions:%=bigupload-%} docs_upload
+bigupload-%:; $(MAKE) pyver=$* bdist_upload

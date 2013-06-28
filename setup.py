@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <11-Jul-2012 10:30:59 PDT by rich.pixley@palm.com>
+# Time-stamp: <01-Jul-2013 15:30:27 PDT by rich@noir.com>
 
+# Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,50 +19,81 @@
 # limitations under the License.
 
 import os
+import platform
 
-try:
-    from setuptools import setup, find_packages
-except ImportError:
-    from ez_setup import use_setuptools
-    use_setuptools()
-    from setuptools import setup, find_packages
+import distribute_setup
+distribute_setup.use_setuptools()
 
-def read(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+import setuptools
+#import rcmp
 
-setup(
+__docformat__ = "restructuredtext en"
+
+me='K Richard Pixley'
+memail='rich@noir.com'
+
+setup_requirements = [
+    	'nose',
+        'arpy',
+        'cpiofile',
+        'elffile',
+        'setuptools_git',
+        ]
+
+version_tuple = platform.python_version_tuple()
+version = platform.python_version()
+
+if version not in [
+    '3.0.1',
+    '3.1.5',
+    '3.3.1',
+    ]:
+    setup_requirements.append('setuptools_lint')
+
+if version not in [
+    '3.0.1',
+    ]:
+    setup_requirements.append('sphinx>=1.0.5')
+
+
+setuptools.setup(
     name='rcmp',
-    version='0.006',
-    author='Rich Pixley',
-    author_email='rich.pixley@palm.com',
-    description='A more flexible, filecmp replacement.',
-    license='PROPRIETARY',
+    version='0.6',
+    author=me,
+    maintainer=me,
+    author_email=memail,
+    maintainer_email=memail,
     keywords='',
-    url='',
-    long_description=read('README'),
-    setup_requires=[
-    	'nose>=0.11.1',
-    ],
+    url = 'https://api.github.com/repos/rich-pixley/rcmp',
+    download_url = 'https://api.github.com/repos/rich-pixley/rcmp/tarball',
+    description='A flexible and extendable file and directory comparison tool.',
+    license='APACHE',
+    long_description='',
+    setup_requires=setup_requirements,
     install_requires=[
-    ],
-    packages=find_packages(),
+        'arpy',
+        'cpiofile',
+        'elffile',
+        ],
+    py_modules=['rcmp'],
+    packages=setuptools.find_packages(),
     include_package_data=True,
     test_suite='nose.collector',
-    py_modules=['rcmp'],
-    requires=[
-        'collections',
-        'os',
-    ],
+    scripts = [],
     provides=[
         'rcmp',
-    ],
+        ],
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
+        'Environment :: Console',
         'Intended Audience :: Developers',
+        'License :: OSI Approved :: Apache Software License',
         'Natural Language :: English',
         'Operating System :: OS Independent',
-        'Programming Language :: Python',
         'Programming Language :: Python :: 2.6',
+        'Programming Language :: Python',
         'Topic :: Software Development :: Libraries :: Python Modules',
-    ],
-)
+        'Topic :: Software Development :: Testing',
+        'Topic :: Utilities',
+        ],
+    )
