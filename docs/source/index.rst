@@ -6,10 +6,7 @@
 Welcome to rcmp's documentation!
 ================================
 
-Contents:
-
-.. toctree::
-   :maxdepth: 2
+.. automodule:: rcmp
 
 Indices and tables
 ==================

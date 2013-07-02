@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <01-Jul-2013 15:36:13 PDT by rich@noir.com>
+# Time-stamp: <02-Jul-2013 15:50:08 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -19,29 +19,144 @@
 # limitations under the License.
 
 """
-Rcmp is a more flexible replacement for filecmp.
+##############
+:py:mod:`RCMP`
+##############
 
-The basic idea here is that depending on content, files don't have to
-be bitwise identical in order to be equivalent or "close enough" for
-many purposes like comparing the results of two builds.  Rcmp includes
-a flexible extension structure to allow for a living set of file
-comparisons.
+:py:mod:`Rcmp` is a more flexible replacement for :py:mod:`filecmp`
+from the standard `Python <http://python.org>`_ library.
 
-The general idea is that each comparable object, (generally, a file or
-a directory), has a list of potential comparison algorythms called
-comparators.  Each comparator returns either null, (meaning:
-indeterminate, the next comparator in the list will be tried), Same,
-(an authoritative declaration that the items are identical, no further
-comparators will be tried), or Different, (an authoritative
-declaration that the items are different, no further comparators will
-be tried.
+The basic idea here is that depending on content, files don't always
+have to be *entirely* bitwise identical in order to be equivalent or
+"close enough" for many purposes like comparing the results of two
+builds.  For example, some (broken) file formats embed a time stamp
+indicating the time when a file was produced even though the file
+system already tracks this information.  Build the same file twice and
+the two copies will initially appear to be different due to the
+embedded time stamp.  Only when the irrelevant embedded time stamp
+differences are ignored do the two files show out to otherwise be the
+same.
 
-See doc for more info.
+:py:mod:`Rcmp` includes a flexible extension structure to allow for precisely
+these sorts of living and evolving comparisons.
 
-Logging strategy: rcmp uses the python standard logging facility.  The
-only non-obvious bits are that definitive differences are logged at
-WARNING level.  Definitive Sames are logged at WARNING - 1.
-And indefinite results are logged at WARNING - 2.
+Extended Path Names
+===================
+
+:py:mod:`Rcmp` is capable of recursively descending into a number
+of different file types including:
+
+* file system directories
+* archival and aggregating types including:
+
+  * `ar <http://en.wikipedia.org/wiki/Ar_%28Unix%29>`_
+  * `cpio <http://en.wikipedia.org/wiki/Cpio>`_
+  * `tar <http://en.wikipedia.org/wiki/Tar_%28file_format%29>`_
+
+* compressed files including:
+
+  * `zip <http://en.wikipedia.org/wiki/Zip_%28file_format%29>`_
+  * `gzip <http://en.wikipedia.org/wiki/Gzip>`_
+
+In order to describe file locations which may extend beyond the
+traditional file system paths, :py:mod:`rcmp` introduces an extended
+path naming scheme.  Traditional paths are described using the
+traditional slash separated list of names, :file:`/etc/hosts`.  And
+components which are included in other files, like a file located
+*within* a `tar <http://en.wikipedia.org/wiki/Tar_%28file_format%29>`_
+archive, are described using a sequence of brace encapsulated file
+format separaters.  So, for instance, a file named :file:`foo` located
+within a gzip compressed, (:file:`.gz`), tar archive named
+:file:`tarchive.tar` would be described as
+:file:`tarchive.tar.gz{{gzip}}tarchive.tar{{tar}}foo`.  And these can
+be combined as with
+:file:`/home/rich/tarchive.tar.gz{{gzip}}tarchive.tar{{tar}}foo`.
+
+Items which are not in the file system proper are referred to
+internally as being "boxed".
+
+Script Usage
+============
+
+:py:mod:`Rcmp` is both a library and a command line script for driving
+the library.
+
+Class Architecture
+==================
+
+.. autoclass:: Item
+   :members:
+
+.. autoclass:: Items
+   :members:
+
+.. autoclass:: Same
+   :members:
+
+.. autoclass:: Different
+   :members:
+
+.. autoclass:: Comparator
+   :members:
+
+.. autoclass:: Aggregator
+   :members:
+
+.. autoclass:: Comparison
+   :members:
+
+.. autoclass:: ComparisonList
+   :members:
+
+Comparators
+===========
+
+Listed in default order of application:
+
+.. autoclass:: NoSuchFileComparator
+.. autoclass:: InodeComparator
+.. autoclass:: EmptyFileComparator
+.. autoclass:: DirComparator
+.. autoclass:: ArMemberMetadataComparator
+.. autoclass:: BitwiseComparator
+.. autoclass:: SymlinkComparator
+
+.. autoclass:: BuriedPathComparator
+
+.. autoclass:: ElfComparator
+.. autoclass:: ArComparator
+.. autoclass:: AMComparator
+.. autoclass:: ConfigLogComparator
+.. autoclass:: KernelConfComparator
+.. autoclass:: ZipComparator
+.. autoclass:: TarComparator
+.. autoclass:: GzipComparator
+.. autoclass:: CpioMemberMetadataComparator
+.. autoclass:: CpioComparator
+.. autoclass:: DateBlotBitwiseComparator
+.. autoclass:: FailComparator
+
+Utilities
+=========
+
+.. autofunction:: date_blot
+.. autofunction:: ignoring
+
+Exceptions
+==========
+
+.. autoexception:: RcmpException
+.. autoexception:: IndeterminateResult
+
+Logging strategy:
+=================
+
+Rcmp uses the python standard logging facility.  The only non-obvious
+bits are that definitive differences are logged at WARNING level.
+Definitive Sames are logged at WARNING - 1.  And indefinite results
+are logged at WARNING - 2.  This allows for linearly increasing
+volumes of logging info starting with the information that is usually
+more important first.
 
 .. Note:: I keep thinking that it would be better to create an
    IgnoringComparator that simply returned Same.  It would make much
@@ -54,7 +169,43 @@ from __future__ import print_function, unicode_literals
 
 __docformat__ = 'restructuredtext en'
 
-__all__ = []
+__all__ = [
+    # basics
+    'Item',
+    'Items',
+    'Same',
+    'Different',
+    'Comparator',
+    'Aggregator',
+    'Comparison',
+    'ComparisonList',
+
+    # utilities
+    'ignoring',
+    'date_blot'
+
+    # comparators
+    'NoSuchFileComparator',
+    'InodeComparator',
+    'EmptyFileComparator',
+    'DirComparator',
+    'ArMemberMetadataComparator',
+    'BitwiseComparator',
+    'SymlinkComparator',
+    'BuriedPathComparator',
+    'ElfComparator',
+    'ArComparator',
+    'AMComparator',
+    'ConfigLogComparator',
+    'KernelConfComparator',
+    'ZipComparator',
+    'TarComparator',
+    'GzipComparator',
+    'CpioMemberMetadataComparator',
+    'CpioComparator',
+    'DateBlotBitwiseComparator',
+    'FailComparator',
+]
 
 import StringIO
 import abc
@@ -89,45 +240,29 @@ logger = logging.getLogger(__name__)
 import pprint
 pp = pprint.PrettyPrinter()
 
-def ignoring(ignores, fname):
-    """
-    return the first ignore pattern that file name matches.  Return False if none match.  (Can be used as a predicate.)
-    """
-    for ignore in ignores:
-        if fnmatch.fnmatch(fname, ignore):
-            return ignore
+# The point of this contortion is to get a logger per class which
+# includes the name of the class.  There's another way to do this
+# involving metaclasses that allows for inheritance rather than
+# needing to decorate each class individually but I haven't yet
+# wrapped my brain around metaclasses.
 
-    return False
+def _loggable(cls):
+    cls.logger = logging.getLogger('{0}.{1}'.format(__name__, cls.__name__))
+    return cls
 
-class Items(object):
-    """
-    An aggregator for instances of Item.  This exists primarily to
-    prevent us from creating duplicate Item for the same path name.
-    """
-
-    _content = {}
-
-    @classmethod
-    def find_or_create(cls, name):
-        ### FIXME: I suspect this is extraneous.  It breaks zipfiles
-        ### with foo/.  Remove it once it's settled.
-        # name = os.path.abspath(name)
-        if name in cls._content:
-            return cls._content[name]
-        else:
-            x = Item(name)
-            cls._content[name] = x
-            return x
-
-    @classmethod
-    def delete(cls, name):
-        del cls._content[name]
 
 class Item(object):
     """
-    Represents an item in the file system, (or in an archive, etc).
+    Things which can be compared are represented internally by
+    instances of class :py:class:`Item`.  These can be items in the
+    file system, like a file or directory, or in an archive, like an
+    archive member.
+
     This is used for caching the results from calls like stat and for
     holding content.
+
+    :param name: file system name
+    :type name: string
     """
 
     import stat
@@ -143,28 +278,44 @@ class Item(object):
     @property
     def name(self):
         """
-        name in the file system name space of this item.
+        name in the extended file system name space of this :py:class:`Item`.
+
+        :rtype: string
         """
         return self._name
 
     @property
     def fd(self):
+        """
+        If we have a file descriptor, return it.  If not, then open one,
+        cache it, and return it.
+
+        :rtype: file
+        """
         if self._fd == False:
             self._fd = open(self.name, 'rb')
-            # print('fd is {0} for {1}'.format(self._fd.fileno(), self.name),file=sys.stderr)
+            # print('fd is {0} for {1}'.format(self._fd.fileno(),
+            #                                  self.name),file=sys.stderr)
 
         return self._fd
 
     def close(self):
+        """
+        Close any outstanding file descriptor if relevant.
+        """
         if not self.boxed:
-            self.fd.close()
+            if self._fd:
+                self.fd.close()
+
             self._fd = False
             self._content = False
 
     @property
     def content(self):
         """
-        The entire file, in memory.
+        The contents of the entire file, in memory.
+
+        :rtype: bytearray or possibly an mmap'd section of file.
         """
         if self._content is False:
             # print('self = {0}'.format(self))
@@ -182,6 +333,13 @@ class Item(object):
 
     @property
     def stat(self):
+        """
+        If we have a statbuf, return it.
+
+        If not, then look one up, cache it, and return it.
+
+        :rtype: statbuf
+        """
         if not self._statbuf:
             try:
                 self._statbuf = os.lstat(self.name)
@@ -193,18 +351,40 @@ class Item(object):
 
     @property
     def exists(self):
+        """
+        Check for existence.  Boxed items always exist.  Unboxed items
+        exist if they exist in the file system.
+
+        :rtype: boolean
+        """
         return self.boxed or (self.stat is not False)
 
     @property
     def inode(self):
+        """
+        Return the inode number from stat.
+
+        :rtype: string
+        """
         return self.stat.st_ino
 
     @property
     def device(self):
+        """
+        Return device number from stat.
+
+        :rtype: string
+        """
         return self.stat.st_dev
 
     @property
     def size(self):
+        """
+        Return our size.  Look it up in stat, (and cache the result), if
+        we don't already know what it is.
+
+        :rtype: int
+        """
         if self._size is None:
             self._size = self.stat.st_size
 
@@ -212,18 +392,40 @@ class Item(object):
 
     @property
     def isdir(self):
+        """
+        Return True if and only if we are represent a file system
+        directory.
+
+        :rtype: boolean
+        """
         return (not self.boxed) and stat.S_ISDIR(self.stat.st_mode)
 
     @property
     def isreg(self):
+        """
+        Return True if and only if we represent a regular file.
+
+        :rtype: boolean
+        """
         return self.boxed or stat.S_ISREG(self.stat.st_mode)
 
     @property
     def islnk(self):
+        """
+        Return True if and only if we represent a symbolic link.
+
+        :rtype: boolean
+        """
         return (not self.boxed) and stat.S_ISLNK(self.stat.st_mode)
 
     @property
     def link(self):
+        """
+        Return a string representing the path to which the symbolic link
+        points.  This presumes that we are a symbolic link.
+
+        :rtype: string
+        """
         if not self._link:
             self._link = os.readlink(self.name)
 
@@ -231,22 +433,167 @@ class Item(object):
 
     @property
     def boxed(self):
+        """
+        Returns True if and only if we are "boxed". That is, if we are not
+        located directly in the file system but instead are
+        encapsulated within some other file.
+
+        :rtype: boolean
+        """
         return hasattr(self, 'box')
+
+class Items(object):
+    """
+    There is a global set of all instances of class :py:class:`Item`
+    stored in the singular class :py:class:`Items`.
+
+    This exists primarily to prevent us from creating a duplicate
+    :py:class:`Item` for the same path name.
+
+    .. note:: The class is used directly here as a global aggregator,
+       a singleton.  It is never instantiated but instead the class
+       itself is used as a singleton.
+    """
+
+    _content = {}
+
+    @classmethod
+    def find_or_create(cls, name):
+        """
+        Look up an :py:class:`Item` with *name*.  If necessary, create it.
+
+        :param name: the name of the :py:class`Item` to look up
+        :type name: string
+        :rtype: :py:class:`Item`
+        """
+        ### FIXME: I suspect this is extraneous.  It breaks zipfiles
+        ### with foo/.  Remove it once it's settled.
+        # name = os.path.abspath(name)
+        if name in cls._content:
+            return cls._content[name]
+        else:
+            x = Item(name)
+            cls._content[name] = x
+            return x
+
+    @classmethod
+    def delete(cls, name):
+        """
+        Delete an :py:class:`Item` from the set.
+
+        :param name: name of the :py:class:`Item` to be deleted.
+        :type name: string
+        """
+        del cls._content[name]
 
 class Same(object):
     """
-    Returned to indicate an authoritative claim of sufficient identicality.  No further comparators should be tried.
+    Returned to indicate an authoritative claim of sufficient
+    identicality.  No further comparators need be tried.
+
+    .. note:: The class itself is used as a constant.  It is never
+       instantiated.
     """
-    name = 'Same'
+    pass
 
 class Different(object):
     """
-    Returned to indicate an authoritative claim of difference.  No further comparators should be tried.
-    """
-    name = 'Different'
+    Returned to indicate an authoritative claim of difference.  No
+    further comparators need be tried.
 
-def date_blot(s):
-    retval = s
+    .. note:: The class itself is used as a constant.  It is never
+       instantiated.
+    """
+    pass
+
+@_loggable
+class Comparator(object):
+    """
+    Represents a single comparison heuristic.  This is an abstract
+    class.  It is intended solely to act as a base class for
+    subclasses.  It is never instantiated.
+
+    Subclasses based on :py:class:`Comparator` implement individual
+    heuristics for comparing items when applied to a
+    :py:class:`Comparison`.  There are many :py:class:`Comparator`
+    subclasses included.
+
+    There are no instantiation variables nor properties.
+    """
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def _applies(self, thing):
+        return False
+
+    def applies(self, comparison):
+        """
+        Return True if and only if we apply to the given comparison.
+
+        :type comparison: :py:class:`Comparison`
+        :rtype: boolean
+        """
+        return reduce(operator.iand, [self._applies(i) for i in comparison.pair])
+
+    @abc.abstractmethod
+    def cmp(self, comparison):
+        """
+        Apply ourselves to the given :py:class:`Comparison`.
+
+        If can make an authoritative determination about whether the
+        :py:class:`Items` are alike then return either
+        :py:class:`Same` or :py:class:`Different`.  If we can make no
+        such determination, then return a non-True value.
+
+        :type comparison: :py:class:`Comparison`
+        :rtype: :py:class:`Same`, :py:class:`Different`, or a non-True value
+        """
+        self.logger.error('{0}.cmp() isn\'t overridden.'.format(self.__class__.__name__))
+
+        raise NotImplementedError
+        return False
+
+    def _log_item(self, item):
+        if item.exists and item.islnk:
+            return (item.name, item.link)
+        else:
+            return item.name
+
+    def _log_string(self, s, comparison):
+        return '{0} {1}\n{2}'.format(s, self.__class__.__name__,
+                                     pp.pformat([self._log_item(i) for i in comparison.pair]))
+
+    def _log_unidiffs(self, content, names):
+        try:
+            self.logger.log(DIFFERENCES,
+                            '\n'.join(difflib.unified_diff(content[0].split('\n'),
+                                                           content[1].split('\n'),
+                                                           names[0], names[1],
+                                                           '', '', 3, '')))
+        except UnicodeError:
+            pass
+
+    def _log_unidiffs_comparison(self, comparison):
+        self._log_unidiffs([i.content[:] for i in comparison.pair],
+                           [i.name for i in comparison.pair])
+
+    def _log_different(self, comparison):
+        self.logger.log(DIFFERENCES, self._log_string('Different', comparison))
+
+    def _log_same(self, comparison):
+        self.logger.log(SAMES, self._log_string('Same', comparison))
+
+    def _log_indeterminate(self, comparison):
+        self.logger.log(INDETERMINATES, self._log_string('Indeterminate', comparison))
+
+
+def date_blot(input_string):
+    """Convert dates embedded in a string into innocuous constants of uniform length.
+    
+    :param input_string: input string
+    :rtype: string
+    """
+    retval = input_string
 
     try:
         # Sun Feb 13 12:29:28 PST 2011
@@ -308,67 +655,23 @@ def date_blot(s):
 
     return retval
 
-# The point of this contortion is to get a logger per class which
-# includes the name of the class.  There's another way to do this
-# involving metaclasses that allows for inheritance rather than
-# needing to decorate each class but I haven't yet wrapped my brain
-# around metaclasses.
-
-def _loggable(cls):
-    cls.logger = logging.getLogger('{0}.{1}'.format(__name__, cls.__name__))
-    return cls
-
-@_loggable
-class Comparator(object):
+def ignoring(ignores, fname):
     """
-    Represents a single comparison algorythm.  This is an abstract
-    class.  It is intended to be subclassed, not instantiated.
+    Given a list of file names to be ignored and a specific file name
+    to check, return the first ignore pattern from the list that
+    matches the file name.
+
+    :param ignores: ignore patterns
+    :type ignores: list of strings
+    :param fname: file name to check
+    :type fname: string
+    :rtype: string or False (Can be used as a predicate.)
     """
-    __metaclass__ = abc.ABCMeta
+    for ignore in ignores:
+        if fnmatch.fnmatch(fname, ignore):
+            return ignore
 
-    @abc.abstractmethod
-    def _applies(self, thing):
-        return False
-
-    def applies(self, comparison):
-        return reduce(operator.iand, [self._applies(i) for i in comparison.pair])
-
-    @abc.abstractmethod
-    def cmp(self, comparison):
-        self.logger.error('{0}.cmp() isn\'t overridden.'.format(self.__class__.__name__))
-
-        return False
-
-    def _log_item(self, item):
-        if item.exists and item.islnk:
-            return (item.name, item.link)
-        else:
-            return item.name
-
-    def _log_string(self, s, comparison):
-        return '{0} {1}\n{2}'.format(s, self.__class__.__name__, pp.pformat([self._log_item(i) for i in comparison.pair]))
-
-    def _log_unidiffs(self, content, names):
-        try:
-            self.logger.log(DIFFERENCES, '\n'.join(difflib.unified_diff(content[0].split('\n'),
-                                                                        content[1].split('\n'),
-                                                                        names[0], names[1],
-                                                                        '', '', 3, '')))
-        except UnicodeError:
-            pass
-
-    def _log_unidiffs_comparison(self, comparison):
-        self._log_unidiffs([i.content[:] for i in comparison.pair],
-                           [i.name for i in comparison.pair])
-
-    def _log_different(self, comparison):
-        self.logger.log(DIFFERENCES, self._log_string('Different', comparison))
-
-    def _log_same(self, comparison):
-        self.logger.log(SAMES, self._log_string('Same', comparison))
-
-    def _log_indeterminate(self, comparison):
-        self.logger.log(INDETERMINATES, self._log_string('Indeterminate', comparison))
+    return False
 
 @_loggable
 class InodeComparator(Comparator):
@@ -408,15 +711,22 @@ class EmptyFileComparator(Comparator):
             return False
 
 class RcmpException(Exception):
+    """Base class for all :py:mod:`rcmp` exceptions"""
     pass
 
 class IndeterminateResult(RcmpException):
-    pass
-
-class Ignoring(RcmpException):
+    """
+    Raised when we can't make any authoritative determination.  At the
+    top level, this is an error condition as this case indicates that
+    we've failed to accomplish our job.  Note that this is
+    significantly different from the non-True value returned by
+    :py:class:`Comparator` subclasses to indicate that they have no
+    authoritative result.
+    """
     pass
 
 class BadZipfile(RcmpException):
+    """Raised when we fail to open a zip archive"""
     pass
 
 class _Boxer(object):
@@ -453,10 +763,10 @@ class Aggregator(Comparator):
 
     @abc.abstractproperty
     def _boxer(self):
+        """
+        An instance of :py:class:_Boxer: to use for path manipulation.
+        """
         return None
-    """
-    An instance of :py:class:_Boxer: to use for path manipulation.
-    """
 
     @abc.abstractmethod
     def _applies(self, thing):
@@ -534,6 +844,9 @@ class Aggregator(Comparator):
                 return Different
 
     def cmp(self, comparison):
+        """
+        Compare our lists and return the result.
+        """
         if (self._left_outer_join(comparison) == Different
             or self._right_outer_join(comparison) == Different):
             # already logged earlier
@@ -879,7 +1192,9 @@ class TarComparator(Aggregator):
     Tar archive files are different if any of the important members
     are different.
 
-    .. note:: must be called before GzipComparator.
+    .. note:: must be called before GzipComparator in order to exploit
+       the Python tarfile module's ability to open compressed
+       archives.
     """
 
     _boxer = _Boxer('{tar}')
@@ -1063,10 +1378,12 @@ class ConfigLogComparator(Comparator):
     When autoconf tests fail, there's a line written to the config.log
     which exposes the name of the underlying temporary file.  Since
     the name of this temporary file changes from build to build, it
-    introduces a nondeterminism.  I'd ignore config.log files, (and
-    started to do exactly that), but it occurs to me that differences
-    in autoconf configuration are quite likely to cause us build
-    differences.  So I've been more surgical.
+    introduces a nondeterminism.
+
+    .. note:: I'd ignore config.log files, (and started to do exactly
+       that), but it occurs to me that differences in autoconf
+       configuration are quite likely to cause build differences.  So
+       I've been more surgical.
     """
 
     def _applies(self, thing):
@@ -1113,9 +1430,10 @@ class ConfigLogComparator(Comparator):
 @_loggable
 class KernelConfComparator(Comparator):
     """
-    When "make config" is run in the kernel, it generates an auto.conf file which includes a
-    time stamp.  I think these files are important enough to merit
-    more surgical checking.  So blot out the 4th line.
+    When "make config" is run in the kernel, it generates an auto.conf
+    file which includes a time stamp.  I think these files are
+    important enough to merit more surgical checking.  This comparator
+    blots out the 4th line.
     """
 
     def _applies(self, thing):
@@ -1267,6 +1585,8 @@ def _findCommonSuffix(this, that):
 class BuriedPathComparator(Comparator):
     """
     Files which differ only in that they have their paths buried in them aren't really different.
+
+    (currently unused).
     """
 
     def _applies(self, thing):
@@ -1310,12 +1630,15 @@ class SymlinkComparator(Comparator):
 class _ComparisonCommon(object):
     """
     This is a base class that holds utilities common to both
-    Comparison and ComparisonList.  It is not intended to be
-    instantiated.
+    :py:class:`Comparison` and :py:class:`ComparisonList`.  It is not
+    intended to be instantiated.
  
-    comparators is a list of comparators to be used
-    ignores is a list of fnmatch style wildcards - file names in this list will be skipped
-    exit_asap asks that we exit as soon as we have a return value, (exit_asap=False is like "make -k" in the sense that it reports on all differences rather than stopping after the first.)
+    :param comparators: comparators to be applied
+    :type comparators: list of :py:class:`Comparator`
+    :param ignores: fnmatch style wild card patterns
+    :type ignores: list of strings
+    :param exit_asap: exit as soon as possible
+    :type exit_asap: boolean
     """
 
     default_comparators = [
@@ -1366,15 +1689,43 @@ class _ComparisonCommon(object):
 class Comparison(_ComparisonCommon):
     """
     Represents a pair of objects to be compared.
+
+    An instance of :py:class:`Comparison` comprises a pair of
+    :py:class:`Item`, a list of :py:class:`Comparator`, and a method
+    for applying the list of :py:class:`Comparator` to the pair of
+    :py:class:`Item` and returning an answer.
+
+    If exit_asap is true, the first difference will end the
+    comparison.  If it is not true, the comparison will continue
+    despite knowing that our aggregate result is that we are
+    :py:class:`Different`.  This is useful for getting a complete list
+    of all differences.
+
+    exit_asap=False is like "make -k" in the sense that it reports on
+    all differences rather than stopping after the first.
+
+    .. todo:: exit_asap is not currently functional.
+
+    :param lname: path name of the first thing, (the leftmost one)
+    :type lname: string
+    :param rname: path name of the second thing, (the rightmost one)
+    :type rname: string
+    :param comparators: list of comparators to be applied
+    :type comparators: list of :py:class:`Comparator`
+    :param ignores: wild card patterns of path names to be ignored
+    :type ignores: list of strings
+    :param exit_asap: exit as soon as possible
+    :type exit_asap: boolean
     """
 
     @property
     def pair(self):
         """
-        a 2 item list of the items to be compared
+        A 2 item list of the items to be compared
+
+        .. todo:: this should be a tuple.
         """
         return self._pair
-
 
     @pair.setter
     def pair(self, value):
@@ -1407,18 +1758,47 @@ class Comparison(_ComparisonCommon):
         for item in self.pair:
             i = self.ignoring(item.name)
             if i:
-                self.logger.log(logging.ERROR, 'Creating comparison using ignored item {0} cause {1}'.format(item.name, i))
+                self.logger.log(logging.ERROR,
+                                'Creating comparison using ignored item {0} cause {1}'.format(item.name, i))
                 raise Ignoring
 
     def cmp(self):
-        """compare our items"""
+        """
+        Compare our pair of :py:class:`Item`.
+
+        Run through our list of :py:class:`Comparator` calling each
+        one in turn with our pair of :py:class:`Item`. Each comparator
+        is expected to return either:
+
+        any non True value, (null, False, etc)
+           indicating an indeterminate result, that is, that this particular
+           comparator could make no authoritative determinations and that the
+           next comparator in the list should be tried
+
+        :py:class:`Same`
+           an authoritative declaration that the items are
+           sufficiently alike and thus no further comparators need be
+           tried
+
+        :py:class:`Different`
+           an authoritative declaration that the items are
+           insufficiently alike and thus no further comparators need
+           be tried.
+
+        If no :py:class:`Comparator` returns non-null, then
+        :py:exc:`IndeterminateResult` will be raised.
+
+        .. todo:: exit_asap is not currently functional.
+        """
         for comparator in self.comparators:
             if not comparator.applies(self):
-                self.logger.log(logging.DEBUG, 'does not apply - {0}\n{1}'.format(comparator,
-                                                                                  pp.pformat([p.name for p in self._pair])))
+                self.logger.log(logging.DEBUG,
+                                'does not apply - {0}\n{1}'.format(comparator,
+                                                                   pp.pformat([p.name for p in self._pair])))
                 continue
 
-            self.logger.log(logging.DEBUG, 'applies - {0}\n{1}'.format(comparator, pp.pformat([p.name for p in self._pair])))
+            self.logger.log(logging.DEBUG,
+                            'applies - {0}\n{1}'.format(comparator, pp.pformat([p.name for p in self._pair])))
             
             result = comparator.cmp(self)
             if result:
@@ -1427,7 +1807,7 @@ class Comparison(_ComparisonCommon):
                 else:
                     level = DIFFERENCES
 
-                self.logger.log(level, '{0} {1}'.format(result.name, self.__class__.__name__))
+                self.logger.log(level, '{0} {1}'.format(result.__name__, self.__class__.__name__))
                 return result
 
         self.logger.log(INDETERMINATES, 'indeterminate result for {0}'.format([p.name for p in self._pair]))
@@ -1436,7 +1816,17 @@ class Comparison(_ComparisonCommon):
 @_loggable
 class ComparisonList(_ComparisonCommon):
     """
-    represents a list of lists of objects to be compared - one from column a, one from column b, etc.
+    Represents a pair of lists of path names to be compared - one from
+    column a, one from column b, etc.
+
+    An instance of :py:class:`ComparisonList` is very similar to a
+    :py:class:`Comparison` except that instead of a pair of Items, it
+    comprises a pair of lists of path names
+
+    :param stuff: path names to be compared
+    :type stuff: a (2-element) list of lists of string
+
+    In all other ways, this class resembles :py:class:`Comparison`.
     """
 
     def __init__(self,
@@ -1444,10 +1834,6 @@ class ComparisonList(_ComparisonCommon):
                  comparators=False,
                  ignores=[],
                  exit_asap=False):
-        """
-        stuff is a list of lists of file names to be compared
-        """
-
         _ComparisonCommon.__init__(self,
                                    comparators=comparators,
                                    ignores=ignores,
@@ -1461,7 +1847,9 @@ class ComparisonList(_ComparisonCommon):
                 cause = self.ignoring(fname)
 
                 if cause:
-                    self.logger.log(SAMES, 'ignoring \'{0}\' cause \'{1}\' in {2}'.format(fname, cause, self.__class__.__name__))
+                    self.logger.log(SAMES,
+                                    'ignoring \'{0}\' cause \'{1}\' in {2}'.format(
+                                        fname, cause, self.__class__.__name__))
                 else:
                     new_lst.append(fname)
 
@@ -1469,10 +1857,14 @@ class ComparisonList(_ComparisonCommon):
 
 
     def cmp(self):
+        Comparison.__doc__
+
         length = [len(i) for i in self.stuff]
         
         if not reduce(operator.eq, length):
-            self.logger.log(DIFFERENCES, 'Different {0} lists are of different sizes: {1}'.format(self.__class__.__name__, length))
+            self.logger.log(DIFFERENCES,
+                            'Different {0} lists are of different sizes: {1}'.format(
+                                self.__class__.__name__, length))
             return Different
 
         result = Same
@@ -1498,3 +1890,4 @@ class ComparisonList(_ComparisonCommon):
             self.logger.log(SAMES, 'Same {0}'.format(self.__class__.__name__))
 
         return result
+

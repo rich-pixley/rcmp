@@ -1,6 +1,6 @@
-# Time-stamp: <01-Jul-2013 15:59:58 PDT by rich@noir.com>
+# Time-stamp: <02-Jul-2013 11:36:10 PDT by rich@noir.com>
 
-# Copyright © 2013 K Richard Pixley <rich@noir.com>
+# Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -54,15 +54,15 @@ ${python}:
 		| xargs rm -rf
 	${activate} && python distribute_setup.py
 
-clean: clean_docs
+clean:
 	rm -rf ${venvbase}* .stamp-virtualenv .stamp-apt build \
 		dist ${packagename}.egg-info *.pyc apidocs *.egg *~
 
-doc: ${pydoctor}
-	${activate} && pydoctor --add-module=rcmp.py \
-		--add-module=test_rcmp.py \
-		--add-module=test_spread.py \
-		&& firefox apidocs/index.html
+# doc: ${pydoctor}
+# 	${activate} && pydoctor --add-module=rcmp.py \
+# 		--add-module=test_rcmp.py \
+# 		--add-module=test_spread.py \
+# 		&& firefox apidocs/index.html
 
 setuppy.%: ${python}
 	${activate} && python setup.py $*
@@ -122,11 +122,8 @@ doctrigger = docs/build/html/index.html
 
 .PHONY: docs
 docs: ${doctrigger}
-clean_docs:; (cd docs && $(MAKE) clean)
-
-${doctrigger}: docs/source/index.rst ${packagename}.py
+${doctrigger}: ${python} docs/source/index.rst ${packagename}.py
 	${setuppy} build_sphinx
-	#(cd docs && $(MAKE) html)
 
 .PHONY: lint
 lint: ${python}
@@ -155,10 +152,6 @@ upload_docs docs_upload: ${doctrigger}
 supported_versions := \
 	2.6 \
 	2.7 \
-	3.0 \
-	3.1 \
-	3.2 \
-	3.3 \
 
 bigcheck: ${supported_versions:%=bigcheck-%}
 bigcheck-%:; $(MAKE) pyver=$* check
