@@ -1,4 +1,4 @@
-# Time-stamp: <02-Jul-2013 11:36:10 PDT by rich@noir.com>
+# Time-stamp: <03-Jul-2013 15:16:06 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -70,7 +70,7 @@ setuppy.%: ${python}
 .PHONY: build
 build: rcmp.egg-info/SOURCES.txt
 
-rcmp.egg-info/SOURCES.txt: rcmp.py ${ve}
+rcmp.egg-info/SOURCES.txt: rcmp.py setup.py ${ve}
 	${setuppy} build
 
 .PHONY: check

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <01-Jul-2013 21:06:47 PDT by rich@noir.com>
+# Time-stamp: <03-Jul-2013 15:29:21 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -97,4 +97,12 @@ setuptools.setup(
         'Topic :: Software Development :: Testing',
         'Topic :: Utilities',
         ],
-    )
+    entry_points = {
+        'console_scripts': [
+            'rcmp = rcmp.main:main',
+        ],
+        # 'gui_scripts': [
+        #     'baz = my_package_gui.start_func',
+        # ]
+    },
+)

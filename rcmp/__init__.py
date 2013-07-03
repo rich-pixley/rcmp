@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <02-Jul-2013 15:50:08 PDT by rich@noir.com>
+# Time-stamp: <03-Jul-2013 15:27:04 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -1890,4 +1890,3 @@ class ComparisonList(_ComparisonCommon):
             self.logger.log(SAMES, 'Same {0}'.format(self.__class__.__name__))
 
         return result
-

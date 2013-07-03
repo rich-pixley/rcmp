@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <01-Jul-2013 17:31:32 PDT by rich@noir.com>
+# Time-stamp: <03-Jul-2013 15:38:50 PDT by rich@noir.com>
 
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
@@ -47,11 +47,14 @@ if verbose_logging:
 def isfile(filename):
     assert os.path.isfile(filename), 'missing {}'.format(filename)
 
+rcmp_py = os.path.join('rcmp', '__init__.py')
+tests_py = os.path.join('rcmp', 'tests.py')
+
 class testBasics(object):
     nosuch = 'nosuchfileordirectory'
 
     def __init__(self):
-        self.testfilenames = ['rcmp.py', 'tests.py']
+        self.testfilenames = [rcmp_py, tests_py]
         self.itestfiles = [rcmp.Items.find_or_create(f) for f in self.testfilenames]
 
     def setUp(self):
@@ -319,9 +322,9 @@ class testAr(object):
         with open(self.empty, 'wb') as f:
             f.write('!<arch>\n')
 
-        subprocess.check_call(['ar', 'cr', self.first, 'rcmp.py'])
-        subprocess.check_call(['ar', 'cr', self.second, 'rcmp.py'])
-        subprocess.check_call(['ar', 'cr', self.third, 'rcmp.py', 'tests.py'])
+        subprocess.check_call(['ar', 'cr', self.first, rcmp_py])
+        subprocess.check_call(['ar', 'cr', self.second, rcmp_py])
+        subprocess.check_call(['ar', 'cr', self.third, rcmp_py, tests_py])
 
     def tearDown(self):
         for i in [self.empty, self.first, self.second, self.third]:
