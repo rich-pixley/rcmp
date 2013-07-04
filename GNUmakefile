@@ -1,4 +1,4 @@
-# Time-stamp: <03-Jul-2013 15:16:06 PDT by rich@noir.com>
+# Time-stamp: <03-Jul-2013 23:56:38 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -70,7 +70,7 @@ setuppy.%: ${python}
 .PHONY: build
 build: rcmp.egg-info/SOURCES.txt
 
-rcmp.egg-info/SOURCES.txt: rcmp.py setup.py ${ve}
+rcmp.egg-info/SOURCES.txt: rcmp/__init__.py setup.py ${python}
 	${setuppy} build
 
 .PHONY: check
@@ -80,11 +80,11 @@ check: ${python}
 sdist_format := bztar
 
 .PHONY: sdist
-sdist: ${ve}
+sdist: ${python}
 	${setuppy} sdist --formats=${sdist_format}
 
 .PHONY: bdist
-bdist: ${ve}
+bdist: ${python}
 	${setuppy} bdist
 
 .PHONY: develop
@@ -100,7 +100,7 @@ bdist_upload: ${python}
 	${setuppy} bdist_egg upload ${pypitest}
 
 .PHONY: sdist_upload
-sdist_upload: ${ve}
+sdist_upload: ${python}
 	${setuppy} sdist --formats=${sdist_format} upload ${pypitest}
 
 .PHONY: register
@@ -115,7 +115,7 @@ long.rst: ; ${setuppy} --long-description > $@-new && mv $@-new $@
 
 
 .PHONY: bdist_egg
-bdist_egg: ${ve}
+bdist_egg: ${python}
 	${setuppy} $@
 
 doctrigger = docs/build/html/index.html

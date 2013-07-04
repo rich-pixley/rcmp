@@ -1,7 +1,10 @@
 *.egg
 *.pyc
 *~
+.svn
+TAGS
 build
+rcmp-dev
 rcmp-dev-*
 rcmp.egg-info
 setuptools-*.tar.gz
