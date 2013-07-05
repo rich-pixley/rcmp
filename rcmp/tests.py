@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <03-Jul-2013 15:38:50 PDT by rich@noir.com>
+# Time-stamp: <05-Jul-2013 13:32:43 PDT by rich@noir.com>
 
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
@@ -29,10 +29,9 @@ import abc
 import os
 import shutil
 import subprocess
-import zipfile
 
 import nose
-from nose.tools import assert_true, assert_false, assert_equal, assert_raises, raises
+from nose.tools import assert_false, assert_equal, raises
 
 import rcmp
 
@@ -76,33 +75,33 @@ class testBasics(object):
         rcmp.ComparisonList([[self.testfilenames[0]], [self.testfilenames[0]]], comparators=[]).cmp()
 
     def testNoSuchRight(self):
-       assert_equal(rcmp.Comparison(lname=self.testfilenames[0], rname=self.nosuch, comparators=[
+        assert_equal(rcmp.Comparison(lname=self.testfilenames[0], rname=self.nosuch, comparators=[
             rcmp.NoSuchFileComparator(),
             ]).cmp(), rcmp.Different)
 
     def testNoSuchLeft(self):
-       assert_equal(rcmp.Comparison(lname=self.nosuch, rname=self.testfilenames[0], comparators=[
+        assert_equal(rcmp.Comparison(lname=self.nosuch, rname=self.testfilenames[0], comparators=[
             rcmp.NoSuchFileComparator(),
             ]).cmp(), rcmp.Different)
 
     def testNoSuchBoth(self):
-       assert_equal(rcmp.Comparison(lname=self.nosuch, rname=self.nosuch, comparators=[
+        assert_equal(rcmp.Comparison(lname=self.nosuch, rname=self.nosuch, comparators=[
             rcmp.NoSuchFileComparator(),
             ]).cmp(), rcmp.Same)
 
     @raises(rcmp.IndeterminateResult)
     def testNoSuchNeither(self):
-       assert_false(rcmp.Comparison(lname=self.testfilenames[0], rname=self.testfilenames[0], comparators=[
+        assert_false(rcmp.Comparison(lname=self.testfilenames[0], rname=self.testfilenames[0], comparators=[
             rcmp.NoSuchFileComparator(),
             ]).cmp())
 
     def testInode(self):
-       assert_equal(rcmp.Comparison(lname=self.testfilenames[0], rname=self.testfilenames[0], comparators=[
+        assert_equal(rcmp.Comparison(lname=self.testfilenames[0], rname=self.testfilenames[0], comparators=[
             rcmp.InodeComparator(),
             ]).cmp(), rcmp.Same)
 
     def testInodeList(self):
-       assert_equal(rcmp.ComparisonList([[self.testfilenames[0]], [self.testfilenames[0]]], comparators=[
+        assert_equal(rcmp.ComparisonList([[self.testfilenames[0]], [self.testfilenames[0]]], comparators=[
             rcmp.InodeComparator(),
             ]).cmp(), rcmp.Same)
 
@@ -429,7 +428,7 @@ class testAr2(SimpleAbstract):
             except:
                 pass
 
-            with open(fname, 'wb') as f:
+            with open(fname, 'wb'):
                 pass
             os.chmod(fname, 0)
 
@@ -484,7 +483,7 @@ class testZip(SimpleAbstract):
     def setUp(self):
         for fname in [os.path.join(self.testdir, side, self.nullfilename) for side in ['left', 'right']]:
             self.fnames.append(fname)
-            with open(fname, 'wb') as f:
+            with open(fname, 'wb'):
                 pass
 
         for fname in [os.path.join(self.testdir, side, self.emptyfilename) for side in ['left', 'right']]:

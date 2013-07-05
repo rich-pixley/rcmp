@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <03-Jul-2013 15:27:04 PDT by rich@noir.com>
+# Time-stamp: <05-Jul-2013 13:31:00 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -264,8 +264,6 @@ class Item(object):
     :param name: file system name
     :type name: string
     """
-
-    import stat
 
     def __init__(self, name):
         self._name = name
@@ -751,15 +749,11 @@ class Aggregator(Comparator):
     """
     __metaclass__ = abc.ABCMeta
 
+    #: comparators to be used by children
     _comparators = []
-    """
-    comparators to be used by children
-    """
 
+    #: a list of children to be compared
     _comparisons = []
-    """
-    a list of children to be compared
-    """
 
     @abc.abstractproperty
     def _boxer(self):
