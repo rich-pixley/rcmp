@@ -1,4 +1,4 @@
-# Time-stamp: <05-Jul-2013 14:09:36 PDT by rich@noir.com>
+# Time-stamp: <05-Jul-2013 16:00:47 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -90,7 +90,7 @@ bdist: ${python}
 .PHONY: develop
 develop: ${venv}/lib/${vpython}/site-packages/${packagename}.egg-link
 
-${venv}/lib/${vpython}/site-packages/${packagename}.egg-link: ${python}
+${venv}/lib/${vpython}/site-packages/${packagename}.egg-link: setup.py ${python}
 	${setuppy} --version 
 	#${setuppy} lint
 	${setuppy} develop

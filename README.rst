@@ -31,19 +31,3 @@ stamps.  Rcmp includes a flexible extension structure to allow for a
 living set of file comparisons.
 
 See doc for more info.
-
-To work with rcmp independently from bitbake, say, for instance, to
-run the tests...
-
-    svn co http://subversion.palm.com/main/nova/palm/rcmp/trunk
-    cd trunk
-    make check
-
-The makefile sets up and uses a python standard "virtualenv".  To call
-python directly, say, to run the debugger, you will need to set up
-environment variables.  This is usually done using:
-
-    . python-dev/bin/activate
-
-Note that if you use emacs, you'll need to set this before you call
-emacs.

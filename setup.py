@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <05-Jul-2013 14:04:17 PDT by rich@noir.com>
+# Time-stamp: <05-Jul-2013 16:07:20 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -64,7 +64,7 @@ setuptools.setup(
     author_email=memail,
     maintainer_email=memail,
     keywords='',
-    url = 'https://api.github.com/repos/rich-pixley/rcmp',
+    url = 'https://github.com/rich-pixley/rcmp',
     download_url = 'https://api.github.com/repos/rich-pixley/rcmp/tarball',
     description='A flexible and extendable file and directory comparison tool.',
     license='APACHE',

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <04-Jul-2013 00:24:48 PDT by rich@noir.com>
+# Time-stamp: <05-Jul-2013 16:10:36 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 #
@@ -35,23 +35,22 @@ def main():
     """
     logger = logging.getLogger()
     handler = logging.StreamHandler()
-    handler.setLevel(logging.DEBUG)
-    logger.addHandler(handler)
 
     options = _parse_args()
 
     log_level = logging.ERROR
 
-    if options.verbose is 1:
+    if options.verbose == 1:
         log_level = rcmp.DIFFERENCES
-    elif options.verbose is 2:
+    elif options.verbose == 2:
         log_level = rcmp.SAMES
-    elif options.verbose is 3:
+    elif options.verbose == 3:
         log_level = rcmp.INDETERMINATES
-    elif options.verbose is 4:
+    elif options.verbose > 3:
         log_level = logging.DEBUG
 
-    handler.setLevel(log_level)
+    logger.setLevel(log_level)
+    logger.addHandler(handler)
 
     ignores = []
 
