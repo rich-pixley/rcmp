@@ -1,4 +1,4 @@
-# Time-stamp: <03-Jul-2013 23:56:38 PDT by rich@noir.com>
+# Time-stamp: <05-Jul-2013 14:09:36 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -122,7 +122,7 @@ doctrigger = docs/build/html/index.html
 
 .PHONY: docs
 docs: ${doctrigger}
-${doctrigger}: ${python} docs/source/index.rst ${packagename}.py
+${doctrigger}: ${python} docs/source/index.rst ${packagename}/__init__.py
 	${setuppy} build_sphinx
 
 .PHONY: lint
