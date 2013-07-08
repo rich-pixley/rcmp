@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <05-Jul-2013 13:32:43 PDT by rich@noir.com>
+# Time-stamp: <08-Jul-2013 14:12:03 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
 
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
@@ -29,6 +29,8 @@ import abc
 import os
 import shutil
 import subprocess
+import tempfile
+import time
 
 import nose
 from nose.tools import assert_false, assert_equal, raises
@@ -48,6 +50,24 @@ def isfile(filename):
 
 rcmp_py = os.path.join('rcmp', '__init__.py')
 tests_py = os.path.join('rcmp', 'tests.py')
+
+def rmtree(dir):
+    for i in range(5):
+        try:
+            shutil.rmtree(dir)
+        except:
+            print('tic {} {}'.format(i, dir))
+            print(os.listdir(dir))
+
+            if i < 4:
+                time.sleep(1)
+                continue
+            else:
+                print('clunk! {}\n'.format(dir))
+                raise
+        else:
+            break
+
 
 class testBasics(object):
     nosuch = 'nosuchfileordirectory'
@@ -161,8 +181,8 @@ class testDirDirect(object):
         os.makedirs(os.path.join(self.dirnotemptybase, self.foilername))
 
     def tearDown(self):
-        shutil.rmtree(self.emptydirname)
-        shutil.rmtree(self.dirnotemptybase)
+        rmtree(self.emptydirname)
+        rmtree(self.dirnotemptybase)
 
     def testDirDirect(self):
         itestdir = rcmp.Items.find_or_create(self.emptydirname)
@@ -205,19 +225,14 @@ class testDirDirect(object):
 
 class testTreeBase(object):
     def setUp(self):
-        dirs = ['red', 'blue']
+        self.tdir = tempfile.mkdtemp()
+        self.dirs = [os.path.join(self.tdir, dir) for dir in ['red', 'blue']]
 
-        for dir in dirs:
-            try:
-                shutil.rmtree(dir)
-            except:
-                pass
+        dirs2 = [os.path.join(p, q) for p in self.dirs for q in ['ham', 'eggs', 'spam', 'sam',
+                                                            'I', 'am', 'do', 'not',
+                                                            'like']]
 
-        dirs2 = [os.path.join(p, q) for p in ['red', 'blue'] for q in ['ham', 'eggs', 'spam', 'sam',
-                                                                       'I', 'am', 'do', 'not',
-                                                                       'like']]
-
-        for dir in dirs + dirs2:
+        for dir in self.dirs + dirs2:
             os.makedirs(dir)
 
             for filename in ['foo', 'bar', 'baz', 'bim',
@@ -227,54 +242,50 @@ class testTreeBase(object):
                     print(filename, file=f)
 
     def tearDown(self):
-        for dir in ['red', 'blue']:
-            try:
-                shutil.rmtree(dir)
-            except:
-                pass
+        rmtree(self.tdir)
 
 class testTree(testTreeBase):
     def testCase1(self):
-        assert_equal(rcmp.Comparison(lname='red', rname='blue').cmp(), rcmp.Same)
+        assert_equal(rcmp.Comparison(lname=self.dirs[0], rname=self.dirs[1]).cmp(), rcmp.Same)
 
     def testCaseDefaultLogger(self):
-        assert_equal(rcmp.Comparison(lname='red', rname='blue').cmp(), rcmp.Same)
+        assert_equal(rcmp.Comparison(lname=self.dirs[0], rname=self.dirs[1]).cmp(), rcmp.Same)
 
     def testFallThrough(self):
-        r = rcmp.Comparison(lname=os.path.join('red', 'ham', 'foo'), rname=os.path.join('blue', 'eggs', 'bar'))
+        r = rcmp.Comparison(lname=os.path.join(self.dirs[0], 'ham', 'foo'), rname=os.path.join(self.dirs[1], 'eggs', 'bar'))
         assert_equal(r.cmp(), rcmp.Different)
 
 class testTreeAux(testTreeBase):
     def setUp(self):
         testTreeBase.setUp(self)
 
-        for dir in ['red', 'blue']:
+        for dir in self.dirs:
             filename = os.path.abspath(os.path.join(dir, 'ham', 'foo.pyc'))
             with open(filename, 'wb') as f:
                 print(filename, file=f)
 
     def testBuried(self):
-        assert_equal(rcmp.Comparison(lname=os.path.join('red', 'ham', 'foo.pyc'),
-                                     rname=os.path.join('blue', 'ham', 'foo.pyc'),
+        assert_equal(rcmp.Comparison(lname=os.path.join(self.dirs[0], 'ham', 'foo.pyc'),
+                                     rname=os.path.join(self.dirs[1], 'ham', 'foo.pyc'),
                                      comparators=[
             				rcmp.BuriedPathComparator(),
                                         ]).cmp(), rcmp.Same)
 
     def testIgnore(self):
-        assert_equal(rcmp.Comparison(lname='red', rname='blue', ignores=['*.pyc']).cmp(), rcmp.Same)
+        assert_equal(rcmp.Comparison(lname=self.dirs[0], rname=self.dirs[1], ignores=['*.pyc']).cmp(), rcmp.Same)
 
 
 class testSymlinks(testTreeBase):
     def setUp(self):
         testTreeBase.setUp(self)
 
-        self.red_sausage = os.path.join('red', 'sausage')
-        self.red_bacon = os.path.join('red', 'bacon')
-        self.red_bird = os.path.join('red', 'bird')
+        self.red_sausage = os.path.join(self.dirs[0], 'sausage')
+        self.red_bacon = os.path.join(self.dirs[0], 'bacon')
+        self.red_bird = os.path.join(self.dirs[0], 'bird')
 
-        self.blue_sausage = os.path.join('blue', 'sausage')
-        self.blue_bacon = os.path.join('blue', 'bacon')
-        self.blue_bird = os.path.join('blue', 'bird')
+        self.blue_sausage = os.path.join(self.dirs[1], 'sausage')
+        self.blue_bacon = os.path.join(self.dirs[1], 'bacon')
+        self.blue_bird = os.path.join(self.dirs[1], 'bird')
 
         os.symlink('foo', self.red_bird)
         os.symlink('nonexistent', self.red_sausage)
@@ -294,7 +305,7 @@ class testSymlinks(testTreeBase):
         assert_equal(rcmp.Comparison(lname=self.red_sausage, rname=self.blue_sausage).cmp(), rcmp.Same)
 
     def testDir(self):
-        assert_equal(rcmp.Comparison(lname='red', rname='blue').cmp(), rcmp.Same)
+        assert_equal(rcmp.Comparison(lname=self.dirs[0], rname=self.dirs[1]).cmp(), rcmp.Same)
 
 
 class testCommonSuffix(object):
