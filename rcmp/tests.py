@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <08-Jul-2013 15:38:26 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
+# Time-stamp: <08-Jul-2013 17:02:39 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
 
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
@@ -45,7 +45,7 @@ if verbose_logging:
     handler.setLevel(logging.DEBUG)
     logger.addHandler(handler)
 
-def isfile(filename):
+def assert_isfile(filename):
     assert os.path.isfile(filename), 'missing {}'.format(filename)
 
 rcmp_py = os.path.join('rcmp', '__init__.py')
@@ -164,8 +164,8 @@ class testBasics(object):
     def testElf(self):
         lname = os.path.join('testfiles', 'left', 'main.o')
         rname = os.path.join('testfiles', 'right', 'main.o')
-        isfile(lname)
-        isfile(rname)
+        assert_isfile(lname)
+        assert_isfile(rname)
         assert_equal(rcmp.Comparison(lname=lname,
                                      rname=rname,
                                      comparators=[
@@ -258,9 +258,6 @@ class testTree(TreeBase):
     def testCase1(self):
         assert_equal(rcmp.Comparison(lname=self.dirs[0], rname=self.dirs[1], exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
-    def testCaseDefaultLogger(self):
-        assert_equal(rcmp.Comparison(lname=self.dirs[0], rname=self.dirs[1], exit_asap=self.exit_asap).cmp(), rcmp.Same)
-
     def testFallThrough(self):
         r = rcmp.Comparison(lname=os.path.join(self.dirs[0], 'ham', 'foo'),
                             rname=os.path.join(self.dirs[1], 'eggs', 'bar'),
@@ -330,6 +327,41 @@ class testSymlinks(TreeBase):
 class testSymlinksSlow(testSymlinks):
     exit_asap = False
 
+class FakeComparator(rcmp.Comparator):
+    """
+    Raise IndeterminateResult for files named 'ham' and return Different
+    for others.
+    """
+    def _applies(self, thing):
+        return True
+
+    def cmp(self, comparison):
+        if comparison.pair[0].name.endswith('bar'):
+            raise rcmp.IndeterminateResult
+
+        return rcmp.Different
+
+class testSlow(TreeBase):
+    def setUp(self):
+        TreeBase.setUp(self)
+
+        with open(os.path.join(self.dirs[0], 'I', 'alice'), 'w') as fff:
+            print('ho', file=fff)
+            print('ho', file=fff)
+            print('ho', file=fff)
+
+    def testShort(self):
+        assert_equal(rcmp.Comparison(lname=self.dirs[0], rname=self.dirs[1], comparators=[
+            rcmp.DirComparator(),
+            FakeComparator(),
+            ], exit_asap=True).cmp(), rcmp.Different)
+
+    @raises(rcmp.IndeterminateResult)
+    def testLong(self):
+        rcmp.Comparison(lname=self.dirs[0], rname=self.dirs[1], comparators=[
+            rcmp.DirComparator(),
+            FakeComparator(),
+        ], exit_asap=False).cmp()
 
 class testCommonSuffix(object):
     def testSimple(self):
@@ -347,9 +379,9 @@ class testAr(object):
     second = 'second.a'
     third = 'third.a'
     left = os.path.join('testfiles', 'left', 'archive.a')
-    isfile(left)
+    assert_isfile(left)
     right = os.path.join('testfiles', 'right', 'archive.a')
-    isfile(right)
+    assert_isfile(right)
 
     exit_asap = True
 
@@ -390,12 +422,14 @@ class testAr(object):
         assert_equal(rcmp.Comparison(lname=self.first, rname=self.third, comparators=[
             rcmp.ArMemberMetadataComparator(),
             rcmp.ArComparator(),
+            rcmp.BitwiseComparator(),
             ], exit_asap=self.exit_asap).cmp(), rcmp.Different)
 
     def testOtherDifferent(self):
         assert_equal(rcmp.Comparison(lname=self.third, rname=self.first, comparators=[
             rcmp.ArMemberMetadataComparator(),
             rcmp.ArComparator(),
+            rcmp.BitwiseComparator(),
             ], exit_asap=self.exit_asap).cmp(), rcmp.Different)
 
     def testArElf(self):
@@ -428,7 +462,7 @@ class SimpleAbstract(object):
         (self.lefts, self.rights) = [[os.path.join('testfiles', side, filename) for filename in self.filenames]
                                      for side in self.sides]
         for f in self.lefts + self.rights:
-            isfile(f)
+            assert_isfile(f)
 
         self.exit_asap = exit_asap
 
