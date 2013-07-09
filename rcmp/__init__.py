@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <05-Jul-2013 13:31:00 PDT by rich@noir.com>
+# Time-stamp: <08-Jul-2013 16:52:31 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -826,6 +826,7 @@ class Aggregator(Comparator):
 
     def _inner_join(self, comparison):
         # inner join
+        retval = Same
         for c in comparison.children:
             r = c.cmp()
 
@@ -835,23 +836,34 @@ class Aggregator(Comparator):
 
             if r == Different:
                 self._log_different(comparison)
-                return Different
+                retval = Different
+                if comparison.exit_asap:
+                    return retval
+
+        return retval
 
     def cmp(self, comparison):
         """
         Compare our lists and return the result.
         """
+        retval = Same
         if (self._left_outer_join(comparison) == Different
             or self._right_outer_join(comparison) == Different):
             # already logged earlier
-            return Different
+            retval = Different
+            if comparison.exit_asap:
+                return retval
 
         if self._inner_join(comparison) == Different:
             # already logged earlier
-            return Different
+            retval = Different
+            if comparison.exit_asap:
+                return retval
 
-        self._log_same(comparison)
-        return Same
+        if retval == Same:
+            self._log_same(comparison)
+
+        return retval
 
 @_loggable
 class DirComparator(Aggregator):
@@ -868,7 +880,7 @@ class DirComparator(Aggregator):
     def _expand(self, ignoring, box):
         self.logger.log(logging.DEBUG, '{0} expands {1}'.format(self.__class__.__name__, box.name))
 
-        for fname in os.listdir(box.name):
+        for fname in sorted(os.listdir(box.name)):
             fullname = self._boxer.join(box.name, fname)
             self.logger.log(logging.DEBUG, '{0} considers {1}'.format(self.__class__.__name__, fullname))
 
@@ -1033,7 +1045,7 @@ class ArComparator(Aggregator):
     def _expand(self, ignoring, box):
         self.logger.log(logging.DEBUG, '{0} expands {1}'.format(self.__class__.__name__, box.name))
 
-        for fname in box.ar.archived_files.keys():
+        for fname in sorted(box.ar.archived_files.keys()):
             fullname = self._boxer.join(box.name, fname)
             ignore = ignoring(fullname)
             if ignore:
@@ -1112,7 +1124,7 @@ class CpioComparator(Aggregator):
         """
         self.logger.log(logging.DEBUG, '{0} expands {1}'.format(self.__class__.__name__, box.name))
 
-        for fname in box.cpio.names:
+        for fname in sorted(box.cpio.names):
             fullname = self._boxer.join(box.name, fname)
             ignore = ignoring(fullname)
             if ignore:
@@ -1214,7 +1226,7 @@ class TarComparator(Aggregator):
         """
         self.logger.log(logging.DEBUG, '{0} expands {1}'.format(self.__class__.__name__, box.name))
 
-        for fname in box.tar.getnames():
+        for fname in sorted(box.tar.getnames()):
             fullname = self._boxer.join(box.name, fname)
             ignore = ignoring(fullname)
             if ignore:
@@ -1292,7 +1304,7 @@ class ZipComparator(Aggregator):
         """
         self.logger.log(logging.DEBUG, '{0} expands {1}'.format(self.__class__.__name__, box.name))
 
-        for fname in box.zip.namelist():
+        for fname in sorted(box.zip.namelist()):
             fullname = self._boxer.join(box.name, fname)
             ignore = ignoring(fullname)
             if ignore:
@@ -1631,7 +1643,7 @@ class _ComparisonCommon(object):
     :type comparators: list of :py:class:`Comparator`
     :param ignores: fnmatch style wild card patterns
     :type ignores: list of strings
-    :param exit_asap: exit as soon as possible
+    :param exit_asap: exit as soon as possible (Indeterminate is always raised asap)
     :type exit_asap: boolean
     """
 
@@ -1855,14 +1867,16 @@ class ComparisonList(_ComparisonCommon):
 
         length = [len(i) for i in self.stuff]
         
+        result = Same
         if not reduce(operator.eq, length):
             self.logger.log(DIFFERENCES,
                             'Different {0} lists are of different sizes: {1}'.format(
                                 self.__class__.__name__, length))
-            return Different
+            retval = Different
+            if self.exit_asap:
+                return retval
 
-        result = Same
-        for i in range(0, length[0]):
+        for i in range(0, max(length)):
             c = Comparison(lname=self.stuff[0][i],
                            rname=self.stuff[1][i],
                            comparators=self.comparators,
@@ -1878,7 +1892,7 @@ class ComparisonList(_ComparisonCommon):
                 result = Different
 
                 if self.exit_asap:
-                    break
+                    return result
 
         if result is Same:
             self.logger.log(SAMES, 'Same {0}'.format(self.__class__.__name__))
