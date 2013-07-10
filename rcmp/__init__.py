@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <08-Jul-2013 16:52:31 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
+# Time-stamp: <09-Jul-2013 18:59:12 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -558,8 +558,7 @@ class Comparator(object):
             return item.name
 
     def _log_string(self, s, comparison):
-        return '{0} {1}\n{2}'.format(s, self.__class__.__name__,
-                                     pp.pformat([self._log_item(i) for i in comparison.pair]))
+        return '{0} {1} {2}'.format(s, self.__class__.__name__, comparison.pair[0].name.partition(os.sep)[2])
 
     def _log_unidiffs(self, content, names):
         try:
@@ -1226,7 +1225,8 @@ class TarComparator(Aggregator):
         """
         self.logger.log(logging.DEBUG, '{0} expands {1}'.format(self.__class__.__name__, box.name))
 
-        for fname in sorted(box.tar.getnames()):
+        for member in box.tar.getmembers():
+            fname = member.name
             fullname = self._boxer.join(box.name, fname)
             ignore = ignoring(fullname)
             if ignore:
@@ -1237,17 +1237,19 @@ class TarComparator(Aggregator):
             if not item._content:
                 if item.boxed:
                     # FIXME: remove these asserts when I'm convinced it's ok
-                    assert item._size == item.member.size
-                    assert item.box == box
-                    if item.member.isreg():
-                        assert item._content == item.box.tar.extractfile(item.member).read()
+                    # assert item._size == item.member.size
+                    # assert item.box == box
+                    # if item.member.isreg():
+                    #     assert item._content == item.box.tar.extractfile(item.member).read()
+                    pass
                 else:
-                    item.member = box.tar.getmember(fname)
+                    item.member = member
                     item._size = item.member.size
                     item.box = box
                     if item.member.isreg():
                         item._content = item.box.tar.extractfile(item.member).read()
 
+            self.logger.log(logging.DEBUG, '{0} expanding {1} yields {2}'.format(self.__class__.__name__, box.name, fname))
             yield (fname, item)
 
     def _mates(self, item, box):
@@ -1799,17 +1801,16 @@ class Comparison(_ComparisonCommon):
         for comparator in self.comparators:
             if not comparator.applies(self):
                 self.logger.log(logging.DEBUG,
-                                'does not apply - {0}\n{1}'.format(comparator,
-                                                                   pp.pformat([p.name for p in self._pair])))
+                                'does not apply - {0} {1}'.format(comparator, self._pair[0].name.partition(os.sep)[2]))
                 continue
 
             self.logger.log(logging.DEBUG,
-                            'applies - {0}\n{1}'.format(comparator, pp.pformat([p.name for p in self._pair])))
+                            'applies - {0} {1}'.format(comparator, self._pair[0].name.partition(os.sep)[2]))
             
             result = comparator.cmp(self)
             if result:
                 if result == Same:
-                    level = SAMES
+                    level = INDETERMINATES
                 else:
                     level = DIFFERENCES
 
