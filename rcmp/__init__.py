@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <09-Jul-2013 18:59:12 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
+# Time-stamp: <05-Aug-2013 11:49:26 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -209,6 +209,7 @@ __all__ = [
 
 import StringIO
 import abc
+import contextlib
 import difflib
 import errno
 import fnmatch
@@ -282,24 +283,16 @@ class Item(object):
         """
         return self._name
 
-    @property
-    def fd(self):
-        """
-        If we have a file descriptor, return it.  If not, then open one,
-        cache it, and return it.
+    @contextlib.contextmanager
+    def open(self):
+        with open(self.name, 'rb') as fd:
+            yield fd
 
-        :rtype: file
-        """
-        if self._fd == False:
-            self._fd = open(self.name, 'rb')
-            # print('fd is {0} for {1}'.format(self._fd.fileno(),
-            #                                  self.name),file=sys.stderr)
-
-        return self._fd
+        fd.close()
 
     def close(self):
         """
-        Close any outstanding file descriptor if relevant.
+        Close any outstanding file descriptor if relevant.  Depricated.  Use context manager.
         """
         if not self.boxed:
             if self._fd:
@@ -323,7 +316,8 @@ class Item(object):
             # print('self.fd.name = {0}'.format(self.fd.name))
 
             if self.size > 0:
-                self._content = mmap.mmap(self.fd.fileno(), 0, mmap.MAP_SHARED, mmap.PROT_READ)
+                with self.open() as fd:
+                    self._content = mmap.mmap(fd.fileno(), 0, mmap.MAP_SHARED, mmap.PROT_READ)[:]
             else:
                 self._content = b''
 
@@ -571,7 +565,7 @@ class Comparator(object):
             pass
 
     def _log_unidiffs_comparison(self, comparison):
-        self._log_unidiffs([i.content[:] for i in comparison.pair],
+        self._log_unidiffs([i.content for i in comparison.pair],
                            [i.name for i in comparison.pair])
 
     def _log_different(self, comparison):
@@ -1017,7 +1011,6 @@ class ArMemberMetadataComparator(Comparator):
             return Different
 
 
-import contextlib
 @contextlib.contextmanager
 def openar(filename, fileobj):
     """
@@ -1067,9 +1060,9 @@ class ArComparator(Aggregator):
 
     def cmp(self, comparison):
         with contextlib.nested(openar(comparison.pair[0].name,
-                                       StringIO.StringIO(comparison.pair[0].content[:])),
+                                       StringIO.StringIO(comparison.pair[0].content)),
                                openar(comparison.pair[1].name,
-                                       StringIO.StringIO(comparison.pair[1].content[:]))) as (comparison.pair[0].ar,
+                                       StringIO.StringIO(comparison.pair[1].content))) as (comparison.pair[0].ar,
                                                                                               comparison.pair[1].ar):
             return Aggregator.cmp(self, comparison)
 
@@ -1150,8 +1143,8 @@ class CpioComparator(Aggregator):
         return self._boxer.split(item.name)[-1] in box.cpio.names
 
     def cmp(self, comparison):
-        with contextlib.nested(opencpio(comparison.pair[0].name, comparison.pair[0].content[:]),
-                               opencpio(comparison.pair[1].name, comparison.pair[0].content[:])) as (comparison.pair[0].cpio,
+        with contextlib.nested(opencpio(comparison.pair[0].name, comparison.pair[0].content),
+                               opencpio(comparison.pair[1].name, comparison.pair[0].content)) as (comparison.pair[0].cpio,
                                                                                                      comparison.pair[1].cpio):
             return Aggregator.cmp(self, comparison)
 
@@ -1209,7 +1202,7 @@ class TarComparator(Aggregator):
         # lucky, we won't need to.
 
         try:
-            tarfile.open(fileobj=StringIO.StringIO(thing.content[:])).close()
+            tarfile.open(fileobj=StringIO.StringIO(thing.content)).close()
 
         except:
             return False
@@ -1258,10 +1251,10 @@ class TarComparator(Aggregator):
     def cmp(self, comparison):
         with contextlib.nested(opentar(comparison.pair[0].name,
                                        'r',
-                                       StringIO.StringIO(comparison.pair[0].content[:])),
+                                       StringIO.StringIO(comparison.pair[0].content)),
                                opentar(comparison.pair[1].name,
                                        'r',
-                                       StringIO.StringIO(comparison.pair[1].content[:]))) as (comparison.pair[0].tar,
+                                       StringIO.StringIO(comparison.pair[1].content))) as (comparison.pair[0].tar,
                                                                                               comparison.pair[1].tar):
             return Aggregator.cmp(self, comparison)
 
@@ -1293,7 +1286,7 @@ class ZipComparator(Aggregator):
         """
         """
         try:
-            zipfile.ZipFile(StringIO.StringIO(thing.content[:]), 'r').close()
+            zipfile.ZipFile(StringIO.StringIO(thing.content), 'r').close()
 
         except:
             return False
@@ -1332,8 +1325,8 @@ class ZipComparator(Aggregator):
         return self._boxer.split(item.name)[-1] in box.zip.namelist()
 
     def cmp(self, comparison):
-        with contextlib.nested(openzip(StringIO.StringIO(comparison.pair[0].content[:]), 'r'),
-                               openzip(StringIO.StringIO(comparison.pair[1].content[:]), 'r')) as (comparison.pair[0].zip,
+        with contextlib.nested(openzip(StringIO.StringIO(comparison.pair[0].content), 'r'),
+                               openzip(StringIO.StringIO(comparison.pair[1].content), 'r')) as (comparison.pair[0].zip,
                                                                                                    comparison.pair[1].zip):
 
             if comparison.pair[0].zip.comment != comparison.pair[1].zip.comment:
@@ -1363,7 +1356,7 @@ class AMComparator(Comparator):
         return thing.content.find('generated by automake', 0, p) > -1 # must contain this phrase
 
     def cmp(self, comparison):
-        (left, right) = [i.content[:].decode('utf8') for i in comparison.pair]
+        (left, right) = [i.content.decode('utf8') for i in comparison.pair]
 
         (left, right) = [date_blot(i) for i in [left, right]]
 
@@ -1461,7 +1454,7 @@ class KernelConfComparator(Comparator):
         return thing.content.find(trigger, 0, p) > -1 # must contain this phrase
 
     def cmp(self, comparison):
-        (left, right) = [i.content[:].split('\n') for i in comparison.pair]
+        (left, right) = [i.content.split('\n') for i in comparison.pair]
         del left[3]
         del right[3]
 
@@ -1544,7 +1537,7 @@ class GzipComparator(Aggregator):
 
             # This copy is only necessary because otherwise StringIO
             # seems to want to decode the mmap.
-            sio = StringIO.StringIO(box.content[:])
+            sio = StringIO.StringIO(box.content)
             gz = gzip.GzipFile(box.name, 'rb', 9, sio)
             item._content = gz.read()
             item._size = len(item._content)
