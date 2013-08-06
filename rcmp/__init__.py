@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <05-Aug-2013 11:49:26 PDT by rich@noir.com>
+# Time-stamp: <08-Aug-2013 15:10:26 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -72,9 +72,6 @@ within a gzip compressed, (:file:`.gz`), tar archive named
 be combined as with
 :file:`/home/rich/tarchive.tar.gz{{gzip}}tarchive.tar{{tar}}foo`.
 
-Items which are not in the file system proper are referred to
-internally as being "boxed".
-
 Script Usage
 ============
 
@@ -99,7 +96,7 @@ Class Architecture
 .. autoclass:: Comparator
    :members:
 
-.. autoclass:: Aggregator
+.. autoclass:: Box
    :members:
 
 .. autoclass:: Comparison
@@ -110,6 +107,8 @@ Class Architecture
 
 Comparators
 ===========
+
+..fixme:: comparators should probably be zero instance strategies.
 
 Listed in default order of application:
 
@@ -176,9 +175,10 @@ __all__ = [
     'Same',
     'Different',
     'Comparator',
-    'Aggregator',
+    'Box',
     'Comparison',
     'ComparisonList',
+    'rootItem',
 
     # utilities
     'ignoring',
@@ -252,6 +252,9 @@ def _loggable(cls):
     return cls
 
 
+_read_count = 3
+
+@_loggable
 class Item(object):
     """
     Things which can be compared are represented internally by
@@ -266,13 +269,35 @@ class Item(object):
     :type name: string
     """
 
-    def __init__(self, name):
+    def __init__(self, name, parent, box=None):
+        assert parent
+
         self._name = name
         self._statbuf = False
         self._fd = False
         self._content = False
         self._link = False
         self._size = None
+        self._read_count = 0
+        self._native = False
+
+        self.parent = parent
+        self._box = box if box else DirComparator
+
+        self.logger.log(logging.DEBUG,
+                        'Item(name = {}, parent = {}, box = {})'.format(name,
+                                                                       parent.name if hasattr(parent, 'name') else 'None',
+                                                                       self._box.__name__))
+
+    @property
+    def box(self):
+        return self._box
+
+    @box.setter
+    def box(self, value):
+        """setter"""
+        assert value
+        self._box = value
 
     @property
     def name(self):
@@ -283,23 +308,9 @@ class Item(object):
         """
         return self._name
 
-    @contextlib.contextmanager
-    def open(self):
-        with open(self.name, 'rb') as fd:
-            yield fd
-
-        fd.close()
-
-    def close(self):
-        """
-        Close any outstanding file descriptor if relevant.  Depricated.  Use context manager.
-        """
-        if not self.boxed:
-            if self._fd:
-                self.fd.close()
-
-            self._fd = False
-            self._content = False
+    @property
+    def shortname(self):
+        return self.box.member_shortname(self)
 
     @property
     def content(self):
@@ -308,20 +319,20 @@ class Item(object):
 
         :rtype: bytearray or possibly an mmap'd section of file.
         """
-        if self._content is False:
-            # print('self = {0}'.format(self))
-            # print('self.fd = {0}'.format(self.fd))
-            # print('self.fd.fileno() = {0}'.format(self.fd.fileno()))
-            # print('self.fd.closed = {0}'.format(self.fd.closed))
-            # print('self.fd.name = {0}'.format(self.fd.name))
 
-            if self.size > 0:
-                with self.open() as fd:
-                    self._content = mmap.mmap(fd.fileno(), 0, mmap.MAP_SHARED, mmap.PROT_READ)[:]
-            else:
-                self._content = b''
+        global _read_count
+
+        if self._content is False:
+            self._content = self.box.member_content(self)
+            self._read_count += 1
+            if self._read_count > _read_count:
+                _read_count = self._read_count
 
         return self._content
+
+    def reset(self):
+        self.logger.log(logging.DEBUG, 'resetting {}'.format(self.name))
+        self._content = False
 
     @property
     def stat(self):
@@ -333,23 +344,23 @@ class Item(object):
         :rtype: statbuf
         """
         if not self._statbuf:
-            try:
-                self._statbuf = os.lstat(self.name)
-            except OSError as (err, strerror):
-                if err != errno.ENOENT:
-                    raise
+            self._statbuf = self.parent.box.member_stat(self)
 
         return self._statbuf
 
     @property
     def exists(self):
         """
-        Check for existence.  Boxed items always exist.  Unboxed items
-        exist if they exist in the file system.
+        Check for existence.
 
         :rtype: boolean
         """
-        return self.boxed or (self.stat is not False)
+        try:
+            return self.parent.box.member_exists(self)
+
+        except:
+            self.logger.log(logging.DEBUG, 'self = {}, self.box = {}'.format(self, self.box))
+            raise
 
     @property
     def inode(self):
@@ -358,7 +369,7 @@ class Item(object):
 
         :rtype: string
         """
-        return self.stat.st_ino
+        return self.box.member_inode(self)
 
     @property
     def device(self):
@@ -367,7 +378,7 @@ class Item(object):
 
         :rtype: string
         """
-        return self.stat.st_dev
+        return self.box.member_device(self)
 
     @property
     def size(self):
@@ -378,7 +389,7 @@ class Item(object):
         :rtype: int
         """
         if self._size is None:
-            self._size = self.stat.st_size
+            self._size = self.parent.box.member_size(self)
 
         return self._size
 
@@ -390,7 +401,12 @@ class Item(object):
 
         :rtype: boolean
         """
-        return (not self.boxed) and stat.S_ISDIR(self.stat.st_mode)
+        try:
+            return self.parent.box.member_isdir(self)
+
+        except:
+            self.logger.log(logging.DEBUG, 'isdir self = {}, self.box = {}'.format(self.name, self.box))
+            raise
 
     @property
     def isreg(self):
@@ -399,7 +415,7 @@ class Item(object):
 
         :rtype: boolean
         """
-        return self.boxed or stat.S_ISREG(self.stat.st_mode)
+        return self.parent.box.member_isreg(self)
 
     @property
     def islnk(self):
@@ -408,7 +424,7 @@ class Item(object):
 
         :rtype: boolean
         """
-        return (not self.boxed) and stat.S_ISLNK(self.stat.st_mode)
+        return self.parent.box.member_islnk(self)
 
     @property
     def link(self):
@@ -419,20 +435,10 @@ class Item(object):
         :rtype: string
         """
         if not self._link:
-            self._link = os.readlink(self.name)
+            self._link = self.parent.box.member_link(self)
 
         return self._link
 
-    @property
-    def boxed(self):
-        """
-        Returns True if and only if we are "boxed". That is, if we are not
-        located directly in the file system but instead are
-        encapsulated within some other file.
-
-        :rtype: boolean
-        """
-        return hasattr(self, 'box')
 
 class Items(object):
     """
@@ -450,7 +456,7 @@ class Items(object):
     _content = {}
 
     @classmethod
-    def find_or_create(cls, name):
+    def find_or_create(cls, name, parent, box=None):
         """
         Look up an :py:class:`Item` with *name*.  If necessary, create it.
 
@@ -458,13 +464,16 @@ class Items(object):
         :type name: string
         :rtype: :py:class:`Item`
         """
+        if not box:
+            box = DirComparator
+
         ### FIXME: I suspect this is extraneous.  It breaks zipfiles
         ### with foo/.  Remove it once it's settled.
         # name = os.path.abspath(name)
         if name in cls._content:
             return cls._content[name]
         else:
-            x = Item(name)
+            x = Item(name, parent, box)
             cls._content[name] = x
             return x
 
@@ -477,6 +486,10 @@ class Items(object):
         :type name: string
         """
         del cls._content[name]
+
+    @classmethod
+    def reset(cls):
+        cls._content = {}
 
 class Same(object):
     """
@@ -503,32 +516,36 @@ class Comparator(object):
     """
     Represents a single comparison heuristic.  This is an abstract
     class.  It is intended solely to act as a base class for
-    subclasses.  It is never instantiated.
+    subclasses.  It is never instantiated. (lie - fixme).
 
     Subclasses based on :py:class:`Comparator` implement individual
     heuristics for comparing items when applied to a
     :py:class:`Comparison`.  There are many :py:class:`Comparator`
     subclasses included.
 
-    There are no instantiation variables nor properties.
+    ..note:: :py:class:`Comparator`s are strategies.  That is, there are no
+             instantiation variables nor properties.
     """
     __metaclass__ = abc.ABCMeta
 
+    @staticmethod
     @abc.abstractmethod
-    def _applies(self, thing):
+    def _applies(thing):
         return False
 
-    def applies(self, comparison):
+    @classmethod
+    def applies(cls, comparison):
         """
         Return True if and only if we apply to the given comparison.
 
         :type comparison: :py:class:`Comparison`
         :rtype: boolean
         """
-        return reduce(operator.iand, [self._applies(i) for i in comparison.pair])
+        return reduce(operator.iand, [cls._applies(i) for i in comparison.pair])
 
+    @classmethod
     @abc.abstractmethod
-    def cmp(self, comparison):
+    def cmp(cls, comparison):
         """
         Apply ourselves to the given :py:class:`Comparison`.
 
@@ -540,23 +557,26 @@ class Comparator(object):
         :type comparison: :py:class:`Comparison`
         :rtype: :py:class:`Same`, :py:class:`Different`, or a non-True value
         """
-        self.logger.error('{0}.cmp() isn\'t overridden.'.format(self.__class__.__name__))
+        cls.logger.error('{0}.cmp() isn\'t overridden.'.format(cls.__name__))
 
         raise NotImplementedError
         return False
 
-    def _log_item(self, item):
+    @classmethod
+    def _log_item(cls, item):
         if item.exists and item.islnk:
             return (item.name, item.link)
         else:
             return item.name
 
-    def _log_string(self, s, comparison):
-        return '{0} {1} {2}'.format(s, self.__class__.__name__, comparison.pair[0].name.partition(os.sep)[2])
+    @classmethod
+    def _log_string(cls, s, comparison):
+        return '{0} {1} {2}'.format(s, cls.__name__, comparison.pair[0].name.partition(os.sep)[2])
 
-    def _log_unidiffs(self, content, names):
+    @classmethod
+    def _log_unidiffs(cls, content, names):
         try:
-            self.logger.log(DIFFERENCES,
+            cls.logger.log(DIFFERENCES,
                             '\n'.join(difflib.unified_diff(content[0].split('\n'),
                                                            content[1].split('\n'),
                                                            names[0], names[1],
@@ -564,18 +584,22 @@ class Comparator(object):
         except UnicodeError:
             pass
 
-    def _log_unidiffs_comparison(self, comparison):
-        self._log_unidiffs([i.content for i in comparison.pair],
+    @classmethod
+    def _log_unidiffs_comparison(cls, comparison):
+        cls._log_unidiffs([i.content for i in comparison.pair],
                            [i.name for i in comparison.pair])
 
-    def _log_different(self, comparison):
-        self.logger.log(DIFFERENCES, self._log_string('Different', comparison))
+    @classmethod
+    def _log_different(cls, comparison):
+        cls.logger.log(DIFFERENCES, cls._log_string('Different', comparison))
 
-    def _log_same(self, comparison):
-        self.logger.log(SAMES, self._log_string('Same', comparison))
+    @classmethod
+    def _log_same(cls, comparison):
+        cls.logger.log(SAMES, cls._log_string('Same', comparison))
 
-    def _log_indeterminate(self, comparison):
-        self.logger.log(INDETERMINATES, self._log_string('Indeterminate', comparison))
+    @classmethod
+    def _log_indeterminate(cls, comparison):
+        cls.logger.log(INDETERMINATES, cls._log_string('Indeterminate', comparison))
 
 
 def date_blot(input_string):
@@ -670,16 +694,18 @@ class InodeComparator(Comparator):
     Objects with the same inode and device are identical.
     """
 
-    def _applies(self, thing):
-        return not thing.boxed
+    @classmethod
+    def _applies(cls, item):
+        return item.box is DirComparator
 
-    def cmp(self, comparison):
+    @classmethod
+    def cmp(cls, comparison):
         if (reduce(operator.eq, [i.inode for i in comparison.pair])
             and reduce(operator.eq, [i.device for i in comparison.pair])):
-            self._log_same(comparison)
+            cls._log_same(comparison)
             return Same
         else:
-            self._log_indeterminate(comparison)
+            cls._log_indeterminate(comparison)
             return False
 
 @_loggable
@@ -689,16 +715,18 @@ class EmptyFileComparator(Comparator):
     need to open them or read them to make this determination.
     """
 
-    def _applies(self, thing):
-        return thing.isreg
+    @classmethod
+    def _applies(cls, item):
+        return item.isreg
 
-    def cmp(self, comparison):
+    @classmethod
+    def cmp(cls, comparison):
         if (comparison.pair[0].size == 0
             and comparison.pair[1].size == 0):
-            self._log_same(comparison)
+            cls._log_same(comparison)
             return Same
         else:
-            self._log_indeterminate(comparison)
+            cls._log_indeterminate(comparison)
             return False
 
 class RcmpException(Exception):
@@ -720,7 +748,7 @@ class BadZipfile(RcmpException):
     """Raised when we fail to open a zip archive"""
     pass
 
-class _Boxer(object):
+class _Packer(object):
     """
     just for aggregation, not intended for instantiation.
     """
@@ -734,164 +762,384 @@ class _Boxer(object):
     def split(self, path):
         return path.split(self.joiner)
 
-class Aggregator(Comparator):
+class Box(Comparator):
     """
-    This is an abstract base class intended for things which are
-    composed of other things.  So, for instance, a directory, or a
-    file archive.
+    This is an abstract base class intended for comparators on things
+    which are composed of other things.  So, for instance, a
+    directory, or a file archive.
+
+    ..note:: subclasses are strategies - they have no properties.
     """
     __metaclass__ = abc.ABCMeta
 
-    #: comparators to be used by children
-    _comparators = []
+    # : An instance of :py:class:_Packer: to use for path manipulation.
+    _packer = None
 
-    #: a list of children to be compared
-    _comparisons = []
+    @classmethod
+    def member_shortname(cls, member):
+        return cls._packer.split(member.name)[-1]
 
-    @abc.abstractproperty
-    def _boxer(self):
-        """
-        An instance of :py:class:_Boxer: to use for path manipulation.
-        """
-        return None
-
+    @staticmethod
     @abc.abstractmethod
-    def _applies(self, thing):
+    def _applies(thing):
         raise NotImplementedError
 
-    def __init__(self, comparators=[]):
-        self._comparators = comparators
-        self._comparisons = []
-
-    def _no_mate(self, name, logger):
-        self.logger.log(DIFFERENCES, 'Different {0} No mate: {1}'.format(self.__class__.__name__, name))
-
+    @staticmethod
     @abc.abstractmethod
-    def _expand(self, ignoring, box):
-        """
-        Given an :py:class:`Thing`, return a list of it's components.
-        """
-        self.logger.log(logging.DEBUG, '{0} expands {1}'.format(self.__class__.__name__, box.name))
+    def box_keys(item):
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def _mates(self, item, box):
-        """
-        Return true if *item* has a mate in *box*.
-        """
-        raise NotImplementedError
+    @classmethod
+    def _no_mate(cls, name, logger):
+        cls.logger.log(DIFFERENCES, 'Different {0} No mate: {1}'.format(cls.__name__, name))
 
-    def _outer_join(self, comparison, invert=False, spool=True):
+    @classmethod
+    def _expand(cls, ignoring, item):
+        cls.logger.log(logging.DEBUG, '{0} expands {1}'.format(cls.__name__, item.name))
+
+        for shortname in cls.box_keys(item):
+            fullname = cls._packer.join(item.name, shortname)
+            ignore = ignoring(fullname)
+            if ignore:
+                cls.logger.log(SAMES, 'Ignoring {0} cause {1}'.format(fullname, ignore))
+                continue
+
+            newitem = Items.find_or_create(fullname, item, cls)
+            yield (shortname, newitem)
+
+    @staticmethod
+    def _mates(item, container):
+        #Box.logger.log(logging.DEBUG, '_mates: item = {}, container = {}'.format(item.name, container.name))
+        return item.shortname in container.box.box_keys(container)
+
+    @classmethod
+    def _outer_join(cls, comparison, invert=False, spool=True):
         # left outer join
         result = False
 
         if invert:
-            rbox, lbox = [p for p in comparison.pair]
+            rparent, lparent = [p for p in comparison.pair]
         else:
-            lbox, rbox = [p for p in comparison.pair]
+            lparent, rparent = [p for p in comparison.pair]
 
-        for name, litem in self._expand(comparison.ignoring, lbox):
-            rname = self._boxer.join(rbox.name, name)
-            ignore = comparison.ignoring(rname)
-            if not ignore:
-                ritem = Items.find_or_create(rname)
-                if self._mates(ritem, rbox):
-                    if spool:
-                        comparison.children.append(Comparison(litem=litem,
-                                                              ritem=ritem,
-                                                              comparators=comparison.comparators,
-                                                              ignores=comparison.ignores,
-                                                              exit_asap=comparison.exit_asap))
-                else:
-                    self._no_mate(litem.name, logger)
-                    result = Different
+        for shortname, litem in cls._expand(comparison.ignoring, lparent):
+            rname = cls._packer.join(rparent.name, shortname)
+            ignore = comparison.ignoring(litem.name)
+            if ignore:
+                cls.logger.log(SAMES, 'Ignoring {0} cause {1}'.format(lname, ignore))
+                continue
+
+            ritem = Items.find_or_create(rname, rparent, cls)
+            if cls._mates(litem, rparent):
+                if spool:
+                    cls.logger.log(logging.DEBUG, 'spooling {}'.format(litem.name))
+                    comparison.children.append(Comparison(litem=litem,
+                                                          ritem=ritem,
+                                                          comparators=comparison.comparators,
+                                                          ignores=comparison.ignores,
+                                                          exit_asap=comparison.exit_asap))
+            else:
+                cls._no_mate(litem.name, logger)
+                result = Different
 
         return result
 
-    def _left_outer_join(self, comparison):
-        return self._outer_join(comparison)
+    @classmethod
+    def _left_outer_join(cls, comparison):
+        return cls._outer_join(comparison)
 
-    def _right_outer_join(self, comparison):
+    @classmethod
+    def _right_outer_join(cls, comparison):
         # we should already have a comparison for this
         # pair but I'd need to rearrange the ordering to
         # do an assert to prove it.
-        return self._outer_join(comparison, invert=True, spool=False)
+        return cls._outer_join(comparison, invert=True, spool=False)
 
-    def _inner_join(self, comparison):
+    @classmethod
+    def _inner_join(cls, comparison):
         # inner join
         retval = Same
         for c in comparison.children:
             r = c.cmp()
 
             if not r:
-                self._log_indeterminate(comparison)
+                cls._log_indeterminate(comparison)
                 raise IndeterminateResult
 
             if r == Different:
-                self._log_different(comparison)
+                cls._log_different(comparison)
                 retval = Different
                 if comparison.exit_asap:
                     return retval
 
         return retval
 
-    def cmp(self, comparison):
+    @classmethod
+    def cmp(cls, comparison):
         """
         Compare our lists and return the result.
         """
+        cls.logger.log(logging.DEBUG, 'Box.cmp({}, ...'.format(cls.__name__))
+
         retval = Same
-        if (self._left_outer_join(comparison) == Different
-            or self._right_outer_join(comparison) == Different):
+        comparison.pair[0].box = comparison.pair[1].box = cls
+
+        if (cls._left_outer_join(comparison) == Different
+            or cls._right_outer_join(comparison) == Different):
             # already logged earlier
             retval = Different
             if comparison.exit_asap:
+                # comparison.reset()
                 return retval
 
-        if self._inner_join(comparison) == Different:
+        if cls._inner_join(comparison) == Different:
             # already logged earlier
             retval = Different
             if comparison.exit_asap:
+                # comparison.reset()
                 return retval
 
         if retval == Same:
-            self._log_same(comparison)
+            cls._log_same(comparison)
+
+        #comparison.pair[0].box = comparison.pair[1].box = None
 
         return retval
 
+    @staticmethod
+    @abc.abstractmethod
+    def member_content(member):
+        raise NotImplementedError
+
+    @staticmethod
+    def member_stat(member):
+        """
+        If member has a statbuf, return it.
+
+        If not, then look one up, cache it, and return it.
+
+        :rtype: statbuf
+        """
+        raise NotImplementedError
+
+    @staticmethod
+    def member_exists(member):
+        """
+        Check for existence.
+
+        :rtype: boolean
+        """
+        Box.logger.log(logging.DEBUG, 'member_exists: member = {}, parent.box({}) -> {}'.format(member.name,
+                                                                                               member.parent.name,
+                                                                                               member.parent.box.box_keys(member.parent)))
+        return member.shortname in member.parent.box.box_keys(member.parent)
+
+    @staticmethod
+    def member_inode(member):
+        """
+        Return the inode number from stat.
+
+        :rtype: string
+        """
+        Box.logger.log(logging.ERROR, 'member_inode not implemented for {}'.format(member.name))
+        raise NotImplementedError
+
+    @staticmethod
+    def member_device(member):
+        """
+        Return device number from stat.
+
+        :rtype: string
+        """
+        Box.logger.log(logging.ERROR, 'member_device not implemented for {}'.format(member.name))
+        raise NotImplementedError
+
+    @staticmethod
+    def member_size(member):
+        """
+        Return our size.
+
+        :rtype: int
+        """
+        Box.logger.log(logging.ERROR, 'member_size not implemented for {}'.format(member.name))
+        raise NotImplementedError
+
+    @staticmethod
+    def member_isdir(member):
+        """
+        Return True if and only if we are represent a directory.
+
+        So far, none of the archive formats recur.  That is, they're
+        all flat collections of files rather than being collections of
+        collections necessarily.  Although such can be created, they
+        aren't an inherent part of the file format.
+
+        :rtype: boolean
+        """
+        Box.logger.log(logging.ERROR, 'member_isdir not implemented for {}'.format(member.name))
+        raise NotImplementedError
+
+    @staticmethod
+    def member_isreg(member):
+        """
+        Return True if and only if member represents a regular file.
+
+        :rtype: boolean
+        """
+        Box.logger.log(logging.ERROR, 'member_isreg not implemented for {}'.format(member.name))
+        raise NotImplementedError
+
+    @staticmethod
+    def member_islnk(member):
+        """
+        Return True if and only if we represent a symbolic link.
+
+        :rtype: boolean
+        """
+        Box.logger.log(logging.ERROR, 'member_islnk not implemented for {}'.format(member.name))
+        raise NotImplementedError
+
+    @staticmethod
+    def member_link(member):
+        """
+        Return a string representing the path to which the symbolic link
+        points.  This presumes that we are a symbolic link.
+
+        :rtype: string
+        """
+        Box.logger.log(logging.ERROR, 'member_link not implemented for {}'.format(member.name))
+        raise NotImplementedError
+
+
+class ContentOnlyBox(Box):
+    """
+    Some containers like zip and gzip only have members with actual
+    content.  That is, no symlinks, no devices, etc.
+    """
+
+    @staticmethod
+    def member_isreg(member):
+        return True
+
+    @staticmethod
+    def member_isdir(member):
+        return False
+
+    @staticmethod
+    def member_islnk(member):
+        return False
+
 @_loggable
-class DirComparator(Aggregator):
+class DirComparator(Box):
     """
     Objects which are directories are special.  They match if their
     contents match.
+
+    .. fixme: this could be a box too.
     """
 
-    _boxer = _Boxer('/')
+    _packer = _Packer('/')
 
-    def _applies(self, thing):
-        return (not thing.boxed) and thing.isdir
+    @staticmethod
+    def _applies(item):
+        return item.isdir
 
-    def _expand(self, ignoring, box):
-        self.logger.log(logging.DEBUG, '{0} expands {1}'.format(self.__class__.__name__, box.name))
+    @staticmethod
+    def box_keys(item):
+        return sorted(os.listdir(item.name))
 
-        for fname in sorted(os.listdir(box.name)):
-            fullname = self._boxer.join(box.name, fname)
-            self.logger.log(logging.DEBUG, '{0} considers {1}'.format(self.__class__.__name__, fullname))
+    @staticmethod
+    def member_content_mmap(member):
+        with open(member.name, 'rb') as fd:
+            return mmap.mmap(fd.fileno(), 0, mmap.MAP_SHARED, mmap.PROT_READ)[:]
 
-            ignore = ignoring(fullname)
-            if ignore:
-                self.logger.log(SAMES, 'Ignoring {0} cause {1}'.format(fullname, ignore))
-                continue
+    @staticmethod
+    def member_content_read(member):
+        with open(member.name, 'rb') as fd:
+            return fd.read()
 
-            self.logger.log(logging.DEBUG, '{0} expands {1}'.format(self.__class__.__name__, fullname))
-            item = Items.find_or_create(fullname)
+    member_content = member_content_read
 
-            yield (fname, item)
-
-    def _mates(self, item, container):
+    @staticmethod
+    def member_exists(member):
         """
-        Return true if *item* has a mate in *container*.
+        Check for existence.
+
+        :rtype: boolean
         """
-        return item.exists
+        return os.path.exists(member.name)
+
+    @staticmethod
+    def member_stat(member):
+        """
+        :rtype: statbuf
+        """
+        return os.lstat(member.name)
+
+    @staticmethod
+    def member_inode(member):
+        """
+        Return the inode number from stat.
+
+        :rtype: string
+        """
+        return member.stat.st_ino
+
+    @staticmethod
+    def member_device(member):
+        """
+        Return device number from stat.
+
+        :rtype: string
+        """
+        return member.stat.st_dev
+
+    @staticmethod
+    def member_size(member):
+        """
+        Return our size.
+
+        :rtype: int
+        """
+        return member.stat.st_size
+
+    @staticmethod
+    def member_isdir(member):
+        """
+        Return True if and only if we are represent a file system
+        directory.
+
+        :rtype: boolean
+        """
+        return stat.S_ISDIR(member.stat.st_mode)
+
+    @staticmethod
+    def member_isreg(member):
+        """
+        Return True if and only if we represent a regular file.
+
+        :rtype: boolean
+        """
+        return stat.S_ISREG(member.stat.st_mode)
+
+    @staticmethod
+    def member_islnk(member):
+        """
+        Return True if and only if we represent a symbolic link.
+
+        :rtype: boolean
+        """
+        return stat.S_ISLNK(member.stat.st_mode)
+
+    @staticmethod
+    def member_link(member):
+        """
+        Return a string representing the path to which the symbolic link
+        points.  This presumes that we are a symbolic link.
+
+        :rtype: string
+        """
+        return os.readlink(member.name)
 
 
 @_loggable
@@ -900,20 +1148,20 @@ class BitwiseComparator(Comparator):
     Objects which are bitwise identical are close enough.
     """
 
-    def _applies(self, thing):
-        return thing.isreg
+    @staticmethod
+    def _applies(item):
+        BitwiseComparator.logger.log(logging.DEBUG, 'testing whether BitwiseComparator applies to {}'.format(item.name))
+        return item.isreg
 
-    def cmp(self, comparison):
+    @classmethod
+    def cmp(cls, comparison):
         if (reduce(operator.eq, [i.size for i in comparison.pair])
             and comparison.pair[0].content.find(comparison.pair[1].content) == 0):
-            self._log_same(comparison)
+            cls._log_same(comparison)
             retval = Same
         else:
-            self._log_indeterminate(comparison)
+            cls._log_indeterminate(comparison)
             retval = False
-
-        for i in comparison.pair:
-            i.close()
 
         return retval
 
@@ -925,19 +1173,18 @@ class DateBlotBitwiseComparator(Comparator):
     enough.  But this should only be tried late.
     """
 
-    def _applies(self, thing):
-        return thing.isreg
+    @staticmethod
+    def _applies(item):
+        return item.isreg
 
-    def cmp(self, comparison):
+    @classmethod
+    def cmp(cls, comparison):
         if (reduce(operator.eq, [date_blot(i.content) for i in comparison.pair])):
-            self._log_same(comparison)
+            cls._log_same(comparison)
             retval = Same
         else:
-            self._log_indeterminate(comparison)
+            cls._log_indeterminate(comparison)
             retval = False
-
-        for i in comparison.pair:
-            i.close()
 
         return retval
 
@@ -949,20 +1196,22 @@ class NoSuchFileComparator(Comparator):
     """
     # FIXME: perhaps this should return same if both are missing.
 
-    def _applies(self, thing):
+    @staticmethod
+    def _applies(item):
         return True
 
-    def cmp(self, comparison):
+    @classmethod
+    def cmp(cls, comparison):
         e = [i.exists for i in comparison.pair]
         if reduce(operator.ne, e):
-            self._log_different(comparison)
+            cls._log_different(comparison)
             return Different
 
         if e[0] is False:
-            self._log_same(comparison)
+            cls._log_same(comparison)
             return Same
 
-        self._log_indeterminate(comparison)
+        cls._log_indeterminate(comparison)
         return False
 
 @_loggable
@@ -974,21 +1223,23 @@ class ElfComparator(Comparator):
 
     _magic = b'\x7fELF'
 
-    def _applies(self, thing):
-        return thing.content.find(self._magic, 0, len(self._magic)) == 0
+    @staticmethod
+    def _applies(item):
+        return item.content.find(ElfComparator._magic, 0, len(ElfComparator._magic)) == 0
 
-    def cmp(self, comparison):
-        e = [(i.content.find(self._magic, 0, len(self._magic)) == 0) for i in comparison.pair]
+    @classmethod
+    def cmp(cls, comparison):
+        e = [(i.content.find(cls._magic, 0, len(cls._magic)) == 0) for i in comparison.pair]
         if not reduce(operator.iand, e):
-            self._log_different(comparison)
+            cls._log_different(comparison)
             return Different
 
         e = [elffile.open(name=i.name, block=i.content) for i in comparison.pair]
         if e[0].close_enough(e[1]):
-            self._log_same(comparison)
+            cls._log_same(comparison)
             return Same
         else:
-            self._log_different(comparison)
+            cls._log_different(comparison)
             return Different
 
 @_loggable
@@ -996,18 +1247,23 @@ class ArMemberMetadataComparator(Comparator):
     """
     Verify the metadata of each member of an ar archive.
     """
-    def _applies(self, thing):
-        return thing.boxed and hasattr(thing.box, 'ar')
+    @staticmethod
+    def _applies(item):
+        return (item.parent is not None) and (item.parent.box is ArComparator)
 
-    def cmp(self, comparison):
-        (left, right) = [i.member.header for i in comparison.pair]
+    @classmethod
+    def cmp(cls, comparison):
+        cls.logger.log(logging.DEBUG, 'cmp: pair[0] = {}'.format(comparison.pair[0].name))
+        cls.logger.log(logging.DEBUG, 'cmp: parent = {}'.format(comparison.pair[0].parent.name))
+
+        (left, right) = [i.parent.ar.archived_files[i.shortname].header for i in comparison.pair]
 
         if (left.uid == right.uid
             and left.gid == right.gid
             and left.mode == right.mode):
             return False
         else:
-            self._log_different(comparison)
+            cls._log_different(comparison)
             return Different
 
 
@@ -1020,51 +1276,51 @@ def openar(filename, fileobj):
     yield ar
     ar.close()
 
+# its possible that ar can hold directories or devices.  It has a
+# "mode" field.  But in practice, this doesn't seem to be used.
+
 @_loggable
-class ArComparator(Aggregator):
+class ArComparator(ContentOnlyBox):
     """
     Ar archive files are different if any of the important members are
     different.
+
+    .. note:: This is a strategy - there are no instance
+       properties. Rather, the content is stored in the comparison
+       pairs.
     """
 
     _magic = b'!<arch>\n'
 
-    _boxer = _Boxer('{ar}')
+    _packer = _Packer('{ar}')
 
-    def _applies(self, thing):
-        return thing.content.find(self._magic, 0, len(self._magic)) == 0
+    @staticmethod
+    def _applies(item):
+        return item.content.find(ArComparator._magic, 0, len(ArComparator._magic)) == 0
 
-    def _expand(self, ignoring, box):
-        self.logger.log(logging.DEBUG, '{0} expands {1}'.format(self.__class__.__name__, box.name))
+    @staticmethod
+    def box_keys(item):
+        ArComparator.logger.log(logging.DEBUG, '{}.box_keys({}) -> {}'.format(ArComparator.__name__,
+                                                                              item.name,
+                                                                              item.ar.archived_files.keys()))
+        return item.ar.archived_files.keys()
 
-        for fname in sorted(box.ar.archived_files.keys()):
-            fullname = self._boxer.join(box.name, fname)
-            ignore = ignoring(fullname)
-            if ignore:
-                self.logger.log(SAMES, 'Ignoring {0} cause {1}'.format(fullname, ignore))
-                continue
+    @staticmethod
+    def member_size(member):
+        return member.parent.ar.archived_files[member.shortname].header.size
 
-            item = Items.find_or_create(fullname)
-            if not item._content:
-                assert not hasattr(item, 'box')
+    @staticmethod
+    def member_content(member):
+        return member.parent.ar.archived_files[member.shortname].read()
 
-                item.member = box.ar.archived_files[fname]
-                item._size = item.member.header.size
-                item._content = item.member.read()
-                item.box = box
-
-            yield (fname, item)
-
-    def _mates(self, item, box):
-        return self._boxer.split(item.name)[-1] in box.ar.archived_files.keys()
-
-    def cmp(self, comparison):
+    @classmethod
+    def cmp(cls, comparison):
         with contextlib.nested(openar(comparison.pair[0].name,
-                                       StringIO.StringIO(comparison.pair[0].content)),
+                                      StringIO.StringIO(comparison.pair[0].content)),
                                openar(comparison.pair[1].name,
-                                       StringIO.StringIO(comparison.pair[1].content))) as (comparison.pair[0].ar,
-                                                                                              comparison.pair[1].ar):
-            return Aggregator.cmp(self, comparison)
+                                      StringIO.StringIO(comparison.pair[1].content))) as (comparison.pair[0].ar,
+                                                                                          comparison.pair[1].ar):
+            return super(cls, cls).cmp(comparison)
 
 
 @_loggable
@@ -1072,11 +1328,13 @@ class CpioMemberMetadataComparator(Comparator):
     """
     Verify the metadata of each member of a cpio archive.
     """
-    def _applies(self, thing):
-        return thing.boxed and hasattr(thing.box, 'cpio')
+    @staticmethod
+    def _applies(item):
+        return item.parent.box is CpioComparator
 
-    def cmp(self, comparison):
-        (left, right) = [i.member for i in comparison.pair]
+    @classmethod
+    def cmp(cls, comparison):
+        (left, right) = [i.parent.cpio.get_member(i.shortname) for i in comparison.pair]
 
         if (left.mode == right.mode
             and left.uid == right.uid
@@ -1086,7 +1344,7 @@ class CpioMemberMetadataComparator(Comparator):
             and left.filesize == right.filesize):
             return False
         else:
-            self._log_different(comparison)
+            cls._log_different(comparison)
             return Different
 
 
@@ -1099,54 +1357,44 @@ def opencpio(filename, guts):
     cpio.close()
 
 @_loggable
-class CpioComparator(Aggregator):
+class CpioComparator(Box):
     """
     Cpio archive files are different if any of the important members
     are different.
+
+    .. note:: This is a strategy - there are no instance
+       properties. Rather, the content is stored in the comparison
+       pairs.
     """
 
-    _boxer = _Boxer('{cpio}')
+    _packer = _Packer('{cpio}')
 
-    def _applies(self, thing):
-        return bool(cpiofile.valid_magic(thing.content))
+    @staticmethod
+    def _applies(item):
+        return bool(cpiofile.valid_magic(item.content))
 
-    def _expand(self, ignoring, box):
-        """
-        Yields pairs, (filename, Item), of the contents of *box*.
-        """
-        self.logger.log(logging.DEBUG, '{0} expands {1}'.format(self.__class__.__name__, box.name))
+    @staticmethod
+    def box_keys(item):
+        return item.cpio.names
 
-        for fname in sorted(box.cpio.names):
-            fullname = self._boxer.join(box.name, fname)
-            ignore = ignoring(fullname)
-            if ignore:
-                self.logger.log(SAMES, 'Ignoring {0} cause {1}'.format(fullname, ignore))
-                continue
+    @staticmethod
+    def member_size(member):
+        return member.parent.cpio.get_member(member.shortname).filesize
 
-            item = Items.find_or_create(fullname)
-            if not item._content:
-                if item.boxed:
-                    # FIXME: remove these asserts when I'm convinced it's ok
-                    assert item.member == box.cpio.get_member(fname)
-                    assert item._size == item.member.filesize
-                    assert item._content == item.member.content
-                    assert item.box == box
-                else:
-                    item.member = box.cpio.get_member(fname)
-                    item._size = item.member.filesize
-                    item._content = item.member.content
-                    item.box = box
+    @staticmethod
+    def member_content(member):
+        return member.parent.cpio.get_member(member.shortname).content
 
-            yield (fname, item)
+    @staticmethod
+    def member_isreg(member):
+        return stat.S_ISREG(member.parent.cpio.get_member(member.shortname).mode)
 
-    def _mates(self, item, box):
-        return self._boxer.split(item.name)[-1] in box.cpio.names
-
-    def cmp(self, comparison):
+    @classmethod
+    def cmp(cls, comparison):
         with contextlib.nested(opencpio(comparison.pair[0].name, comparison.pair[0].content),
                                opencpio(comparison.pair[1].name, comparison.pair[0].content)) as (comparison.pair[0].cpio,
                                                                                                      comparison.pair[1].cpio):
-            return Aggregator.cmp(self, comparison)
+            return super(cls, cls).cmp(comparison)
 
 
 @_loggable
@@ -1154,11 +1402,13 @@ class TarMemberMetadataComparator(Comparator):
     """
     Verify the metadata of each member of an ar archive.
     """
-    def _applies(self, thing):
-        return thing.boxed and hasattr(thing.box, 'tar')
+    @staticmethod
+    def _applies(item):
+        return item.box is TarComparator
 
-    def cmp(self, comparison):
-        (left, right) = [i.member for i in comparison.pair]
+    @classmethod
+    def cmp(cls, comparison):
+        (left, right) = [i.parent.tar.getmember(i.shortname) for i in comparison.pair]
 
         if (left.mode == right.mode
             and left.type == right.type
@@ -1169,7 +1419,7 @@ class TarMemberMetadataComparator(Comparator):
             and left.gname == right.gname):
             return False
         else:
-            self._log_different(comparison)
+            cls._log_different(comparison)
             return Different
 
 
@@ -1185,7 +1435,7 @@ def opentar(filename, mode, fileobj):
     tar.close()
 
 @_loggable
-class TarComparator(Aggregator):
+class TarComparator(Box):
     """
     Tar archive files are different if any of the important members
     are different.
@@ -1193,70 +1443,54 @@ class TarComparator(Aggregator):
     .. note:: must be called before GzipComparator in order to exploit
        the Python tarfile module's ability to open compressed
        archives.
+
+    .. note:: This is a strategy - there are no instance
+       properties. Rather, the content is stored in the comparison
+       pairs.
     """
 
-    _boxer = _Boxer('{tar}')
+    _packer = _Packer('{tar}')
 
-    def _applies(self, thing):
+    @staticmethod
+    def _applies(item):
         # NOTE: this doesn't catch old style tar archives but if we're
         # lucky, we won't need to.
 
         try:
-            tarfile.open(fileobj=StringIO.StringIO(thing.content)).close()
+            tarfile.open(fileobj=StringIO.StringIO(item.content)).close()
 
         except:
             return False
 
         return True
 
-        #return (thing.content.find('ustar', 257, 264) > -1)
+        #return (item.content.find('ustar', 257, 264) > -1)
                 
+    @staticmethod
+    def box_keys(item):
+        return item.tar.getnames()
 
-    def _expand(self, ignoring, box):
-        """
-        Yields pairs, (filename, Item), of the contents of *box*.
-        """
-        self.logger.log(logging.DEBUG, '{0} expands {1}'.format(self.__class__.__name__, box.name))
+    @staticmethod
+    def member_size(member):
+        return member.parent.tar.getmember(member.shortname).size
 
-        for member in box.tar.getmembers():
-            fname = member.name
-            fullname = self._boxer.join(box.name, fname)
-            ignore = ignoring(fullname)
-            if ignore:
-                self.logger.log(SAMES, 'Ignoring {0} cause {1}'.format(fullname, ignore))
-                continue
+    @staticmethod
+    def member_content(member):
+        return member.parent.tar.extractfile(member.shortname).read()
 
-            item = Items.find_or_create(fullname)
-            if not item._content:
-                if item.boxed:
-                    # FIXME: remove these asserts when I'm convinced it's ok
-                    # assert item._size == item.member.size
-                    # assert item.box == box
-                    # if item.member.isreg():
-                    #     assert item._content == item.box.tar.extractfile(item.member).read()
-                    pass
-                else:
-                    item.member = member
-                    item._size = item.member.size
-                    item.box = box
-                    if item.member.isreg():
-                        item._content = item.box.tar.extractfile(item.member).read()
+    @staticmethod
+    def member_isreg(member):
+        return member.parent.tar.getmember(member.shortname).isreg()
 
-            self.logger.log(logging.DEBUG, '{0} expanding {1} yields {2}'.format(self.__class__.__name__, box.name, fname))
-            yield (fname, item)
-
-    def _mates(self, item, box):
-        return self._boxer.split(item.name)[-1] in box.tar.getnames()
-
-    def cmp(self, comparison):
-        with contextlib.nested(opentar(comparison.pair[0].name,
-                                       'r',
+    @classmethod
+    def cmp(cls, comparison):
+        with contextlib.nested(opentar(comparison.pair[0].name, 'r',
                                        StringIO.StringIO(comparison.pair[0].content)),
                                opentar(comparison.pair[1].name,
                                        'r',
                                        StringIO.StringIO(comparison.pair[1].content))) as (comparison.pair[0].tar,
                                                                                               comparison.pair[1].tar):
-            return Aggregator.cmp(self, comparison)
+            return super(cls, cls).cmp(comparison)
 
 
 # ZipFile didn't become a context manager until 2.7.  :\.
@@ -1275,65 +1509,52 @@ def openzip(file, mode):
     zip.close()
 
 @_loggable
-class ZipComparator(Aggregator):
+class ZipComparator(ContentOnlyBox):
     """
     Zip archive files are different if any of the members are different.
+
+    .. note:: This is a strategy - there are no instance
+       properties. Rather, the content is stored in the comparison
+       pairs.
     """
 
-    _boxer = _Boxer('{zip}')
+    _packer = _Packer('{zip}')
 
-    def _applies(self, thing):
+    @staticmethod
+    def _applies(item):
         """
         """
         try:
-            zipfile.ZipFile(StringIO.StringIO(thing.content), 'r').close()
+            zipfile.ZipFile(StringIO.StringIO(item.content), 'r').close()
 
         except:
             return False
 
         return True
 
-    def _expand(self, ignoring, box):
-        """
-        Yields pairs, (filename, Item), of the contents of *box*.
-        """
-        self.logger.log(logging.DEBUG, '{0} expands {1}'.format(self.__class__.__name__, box.name))
+    @staticmethod
+    def box_keys(item):
+        return item.zip.namelist()
 
-        for fname in sorted(box.zip.namelist()):
-            fullname = self._boxer.join(box.name, fname)
-            ignore = ignoring(fullname)
-            if ignore:
-                self.logger.log(SAMES, 'Ignoring {0} cause {1}'.format(fullname, ignore))
-                continue
+    @staticmethod
+    def member_size(member):
+        return member.parent.zip.getinfo(member.shortname).file_size
 
-            item = Items.find_or_create(fullname)
-            if not item._content:
-                if item.boxed:
-                    # FIXME: remove these asserts when I'm convinced it's ok
-                    assert item._size == item.member.file_size
-                    assert item._content == box.zip.read(item.member)
-                    assert item.box == box
-                else:
-                    item.member = box.zip.getinfo(fname)
-                    item._size = item.member.file_size
-                    item._content = box.zip.read(item.member)
-                    item.box = box
+    @staticmethod
+    def member_content(member):
+        return member.parent.zip.read(member.shortname)
 
-            yield (fname, item)
-
-    def _mates(self, item, box):
-        return self._boxer.split(item.name)[-1] in box.zip.namelist()
-
-    def cmp(self, comparison):
+    @classmethod
+    def cmp(cls, comparison):
         with contextlib.nested(openzip(StringIO.StringIO(comparison.pair[0].content), 'r'),
                                openzip(StringIO.StringIO(comparison.pair[1].content), 'r')) as (comparison.pair[0].zip,
                                                                                                    comparison.pair[1].zip):
 
             if comparison.pair[0].zip.comment != comparison.pair[1].zip.comment:
-                self._log_different(comparison)
+                cls._log_different(comparison)
                 return Different
 
-            return Aggregator.cmp(self, comparison)
+            return super(cls, cls).cmp(comparison)
 
 @_loggable
 class AMComparator(Comparator):
@@ -1343,19 +1564,21 @@ class AMComparator(Comparator):
     make some allowance for different tool sets later.)
     """
 
-    def _applies(self, thing):
-        if not thing.name.endswith('Makefile'):
+    @staticmethod
+    def _applies(item):
+        if not item.name.endswith('Makefile'):
             return False # must be called 'Makefile'
 
         p = -1
         for i in range(5):
-            p = thing.content.find('\n', p + 1, p + 132)
+            p = item.content.find('\n', p + 1, p + 132)
             if p is -1:
                 return False # must have at least 5 lines no longer than 132 chars each
 
-        return thing.content.find('generated by automake', 0, p) > -1 # must contain this phrase
+        return item.content.find('generated by automake', 0, p) > -1 # must contain this phrase
 
-    def cmp(self, comparison):
+    @classmethod
+    def cmp(cls, comparison):
         (left, right) = [i.content.decode('utf8') for i in comparison.pair]
 
         (left, right) = [date_blot(i) for i in [left, right]]
@@ -1365,11 +1588,11 @@ class AMComparator(Comparator):
         (left, right) = [re.sub(r'(?m)^BUILDINFO = .*$', 'BUILDINFO = ...', i, 0) for i in [left, right]]
 
         if left == right:
-            self._log_same(comparison)
+            cls._log_same(comparison)
             return Same
         else:
-            self._log_different(comparison)
-            self._log_unidiffs([left, right],
+            cls._log_different(comparison)
+            cls._log_unidiffs([left, right],
                                [i.name for i in comparison.pair])
             return Different
 
@@ -1387,25 +1610,27 @@ class ConfigLogComparator(Comparator):
        I've been more surgical.
     """
 
-    def _applies(self, thing):
-        if thing.name.endswith('config.log'):
+    @staticmethod
+    def _applies(item):
+        if item.name.endswith('config.log'):
             trigger = 'generated by GNU Autoconf'
-        elif thing.name.endswith('config.status'):
+        elif item.name.endswith('config.status'):
             trigger = 'Generated by configure.'
-        elif thing.name.endswith('config.h'):
+        elif item.name.endswith('config.h'):
             trigger = 'Generated from config.h.in by configure.'
         else:
             return False # must be named right
 
         p = -1
         for i in range(8):
-            p = thing.content.find('\n', p + 1) # FIXME: is it worth it to bound this search?
+            p = item.content.find('\n', p + 1) # FIXME: is it worth it to bound this search?
             if p is -1:
                 return False # must have at least 8 lines no longer than 132 chars each
 
-        return thing.content.find(trigger, 0, p) > -1 # must contain this phrase
+        return item.content.find(trigger, 0, p) > -1 # must contain this phrase
 
-    def cmp(self, comparison):
+    @classmethod
+    def cmp(cls, comparison):
         (left, right) = [i.content for i in comparison.pair]
         (left, right) = [re.sub(r'(?m)/cc.{6}\.([os])',
                                 '/cc------.\1',
@@ -1420,11 +1645,11 @@ class ConfigLogComparator(Comparator):
         (left, right) = [date_blot(i) for i in [left, right]]
 
         if left == right:
-            self._log_same(comparison)
+            cls._log_same(comparison)
             return Same
         else:
-            self._log_different(comparison)
-            self._log_unidiffs([left, right],
+            cls._log_different(comparison)
+            cls._log_unidiffs([left, right],
                                [i.name for i in comparison.pair])
             return Different
 
@@ -1437,33 +1662,35 @@ class KernelConfComparator(Comparator):
     blots out the 4th line.
     """
 
-    def _applies(self, thing):
-        if thing.name.endswith('auto.conf'):
+    @staticmethod
+    def _applies(item):
+        if item.name.endswith('auto.conf'):
             trigger = 'Automatically generated make config: don\'t edit'
-        elif thing.name.endswith('autoconf.h'):
+        elif item.name.endswith('autoconf.h'):
             trigger = 'Automatically generated C config: don\'t edit'
         else:
             return False # must be named right
 
         p = -1
         for i in range(8):
-            p = thing.content.find('\n', p + 1) # FIXME: is it worth it to bound this search?
+            p = item.content.find('\n', p + 1) # FIXME: is it worth it to bound this search?
             if p is -1:
                 return False # must have at least 8 lines no longer than 132 chars each
 
-        return thing.content.find(trigger, 0, p) > -1 # must contain this phrase
+        return item.content.find(trigger, 0, p) > -1 # must contain this phrase
 
-    def cmp(self, comparison):
+    @classmethod
+    def cmp(cls, comparison):
         (left, right) = [i.content.split('\n') for i in comparison.pair]
         del left[3]
         del right[3]
 
         if left == right:
-            self._log_same(comparison)
+            cls._log_same(comparison)
             return Same
         else:
-            self._log_different(comparison)
-            self._log_unidiffs([left, right],
+            cls._log_different(comparison)
+            cls._log_unidiffs([left, right],
                                [i.name for i in comparison.pair])
             return Different
 
@@ -1472,11 +1699,13 @@ class ZipMemberMetadataComparator(Comparator):
     """
     Verify the metadata of each member of a zipfile.
     """
-    def _applies(self, thing):
-        return thing.boxed and hasattr(thing.box, 'zip')
+    @staticmethod
+    def _applies(item):
+        return item.box is ZipComparator
 
-    def cmp(self, comparison):
-        (left, right) = [i.member for i in comparison.pair]
+    @classmethod
+    def cmp(cls, comparison):
+        (left, right) = [i.parent.zip.getinfo(i.shortname) for i in comparison.pair]
 
         if (left.compress_type == right.compress_type
             and left.comment == right.comment
@@ -1491,62 +1720,58 @@ class ZipMemberMetadataComparator(Comparator):
             and left.external_attr == right.external_attr):
             return False
         else:
-            self._log_different(comparison)
+            cls._log_different(comparison)
             return Different
 
 
 # ZipFile didn't become a context manager until 2.7.  :\.
 import contextlib
 @contextlib.contextmanager
-def opengzip(file, mode):
+def opengzip(file, mode, fileobj):
     """
     .. todo:: remove opengzip once we move to python-3.x
     """
-    gz = gzip.open(file, mode)
+    gz = gzip.GzipFile(file, mode, 9, fileobj)
     yield gz
     gz.close()
 
 @_loggable
-class GzipComparator(Aggregator):
+class GzipComparator(ContentOnlyBox):
     """
     Gzip archives only have one member but the archive itself sadly
     includes a timestamp.  You can see the timestamp using "gzip -l -v".
     """
 
-    _boxer = _Boxer('{gzip}')
+    _packer = _Packer('{gzip}')
 
-    def _applies(self, thing):
+    @staticmethod
+    def _applies(item):
         """
         """
-        return thing.content[0:2] == b'\x1f\x8b'
+        return item.content[0:2] == b'\x1f\x8b'
 
-    def _expand(self, ignoring, box):
-        self.logger.log(logging.DEBUG, '{0} expands {1}'.format(self.__class__.__name__, box.name))
+    @staticmethod
+    def box_keys(item):
+        return ['{gzipcontent}']
 
-        fname = os.path.split(box.name)[1][:-3]
+    @staticmethod
+    def member_size(member):
+        return len(member.content)
 
-        fullname = self._boxer.join(box.name, fname)
-        ignore = ignoring(fullname)
-        if ignore:
-            self.logger.log(SAMES, 'Ignoring {0} cause {1}'.format(fullname, ignore))
-            return []
+    @staticmethod
+    def member_content(member):
+        return member.parent.gz.read()
 
-        item = Items.find_or_create(fullname)
-        if not item._content:
-            assert not item.boxed
-
-            # This copy is only necessary because otherwise StringIO
-            # seems to want to decode the mmap.
-            sio = StringIO.StringIO(box.content)
-            gz = gzip.GzipFile(box.name, 'rb', 9, sio)
-            item._content = gz.read()
-            item._size = len(item._content)
-            item.box = box
-
-        return [(fname, item)]
-
-    def _mates(self, item, box):
-        return os.path.split(box.name)[-1].startswith(self._boxer.split(item.name)[1])
+    @classmethod
+    def cmp(cls, comparison):
+        with contextlib.nested(opengzip(comparison.pair[0].name,
+                                        'rb',
+                                        StringIO.StringIO(comparison.pair[0].content)),
+                               opengzip(comparison.pair[1].name,
+                                        'rb',
+                                        StringIO.StringIO(comparison.pair[0].content))) as (comparison.pair[0].gz,
+                                                                                            comparison.pair[1].gz):
+            return super(cls, cls).cmp(comparison)
 
 
 @_loggable
@@ -1555,12 +1780,14 @@ class FailComparator(Comparator):
     Used as a catchall - just return Difference
     """
 
-    def _applies(self, thing):
+    @staticmethod
+    def _applies(item):
         return True
 
-    def cmp(self, comparison):
-        self._log_different(comparison)
-        self._log_unidiffs_comparison(comparison)
+    @classmethod
+    def cmp(cls, comparison):
+        cls._log_different(comparison)
+        cls._log_unidiffs_comparison(comparison)
 
         return Different
 
@@ -1590,20 +1817,22 @@ class BuriedPathComparator(Comparator):
     (currently unused).
     """
 
-    def _applies(self, thing):
-        return thing.isreg
+    @staticmethod
+    def _applies(item):
+        return item.isreg
 
-    def cmp(self, comparison):
+    @classmethod
+    def cmp(cls, comparison):
         (this, that) = comparison.pair
         (this.head, that.head, tail) = _findCommonSuffix(this.name, that.name)
 
         if this.content.find(bytes(this.head)) >= 0:
             (this_content, that_content) = [bytearray(t.content).replace(bytes(t.head), b'@placeholder@') for t in comparison.pair]
             if this_content == that_content:
-                self._log_same(comparison)
+                cls._log_same(comparison)
                 return Same
 
-        self._log_indeterminate(comparison)
+        cls._log_indeterminate(comparison)
         return False
 
 @_loggable
@@ -1612,18 +1841,20 @@ class SymlinkComparator(Comparator):
     Symlinks are equal if they point to the same place.
     """
 
-    def _applies(self, thing):
-        return thing.islnk
+    @staticmethod
+    def _applies(item):
+        return item.islnk
 
-    def cmp(self, comparison):
+    @classmethod
+    def cmp(cls, comparison):
         (this, that) = [p.link for p in comparison.pair]
 
         if this == that:
-            self._log_same(comparison)
+            cls._log_same(comparison)
             return Same
 
         else:
-            self._log_different(comparison)
+            cls._log_different(comparison)
             return Different
 
 
@@ -1643,26 +1874,26 @@ class _ComparisonCommon(object):
     """
 
     default_comparators = [
-        NoSuchFileComparator(),
-        InodeComparator(),
-        EmptyFileComparator(),
-        DirComparator(),
-        ArMemberMetadataComparator(),
-        BitwiseComparator(),
-        SymlinkComparator(),
-        #BuriedPathComparator(),
-        ElfComparator(),
-        ArComparator(),
-        AMComparator(),
-        ConfigLogComparator(),
-        KernelConfComparator(),
-        ZipComparator(),
-        TarComparator(), # must be before GzipComparator
-        GzipComparator(),
-        CpioMemberMetadataComparator(),
-        CpioComparator(),
-        DateBlotBitwiseComparator(),
-        FailComparator(),
+        NoSuchFileComparator,
+        InodeComparator,
+        EmptyFileComparator,
+        DirComparator,
+        ArMemberMetadataComparator,
+        BitwiseComparator,
+        SymlinkComparator,
+        #BuriedPathComparator,
+        ElfComparator,
+        ArComparator,
+        AMComparator,
+        ConfigLogComparator,
+        KernelConfComparator,
+        ZipComparator,
+        TarComparator, # must be before GzipComparator
+        GzipComparator,
+        CpioMemberMetadataComparator,
+        CpioComparator,
+        DateBlotBitwiseComparator,
+        FailComparator,
         ]
     """
     .. todo:: use counts so we can make better guesses about which
@@ -1733,6 +1964,10 @@ class Comparison(_ComparisonCommon):
         """setter"""
         self._pair = value
 
+    def reset(self):
+        self.logger.log(logging.DEBUG, 'resetting {}'.format(self.pair[0].name))
+        for item in self.pair:
+            item.reset()
 
     def __init__(self, lname='',
                  rname='',
@@ -1748,10 +1983,10 @@ class Comparison(_ComparisonCommon):
                                    exit_asap=exit_asap)
 
         if rname and not ritem:
-            ritem = Items.find_or_create(rname)
+            ritem = Items.find_or_create(rname, root, DirComparator)
 
         if lname and not litem:
-            litem = Items.find_or_create(lname)
+            litem = Items.find_or_create(lname, root, DirComparator)
 
         self.pair = (litem, ritem)
         self.children = []
@@ -1794,11 +2029,11 @@ class Comparison(_ComparisonCommon):
         for comparator in self.comparators:
             if not comparator.applies(self):
                 self.logger.log(logging.DEBUG,
-                                'does not apply - {0} {1}'.format(comparator, self._pair[0].name.partition(os.sep)[2]))
+                                'does not apply - {0} {1}'.format(comparator, self._pair[0].name))
                 continue
 
             self.logger.log(logging.DEBUG,
-                            'applies - {0} {1}'.format(comparator, self._pair[0].name.partition(os.sep)[2]))
+                            'applies - {0} {1}'.format(comparator, self._pair[0].name))
             
             result = comparator.cmp(self)
             if result:
@@ -1808,6 +2043,11 @@ class Comparison(_ComparisonCommon):
                     level = DIFFERENCES
 
                 self.logger.log(level, '{0} {1}'.format(result.__name__, self.__class__.__name__))
+
+                for item in self.pair:
+                    # item.reset()
+                    pass
+
                 return result
 
         self.logger.log(INDETERMINATES, 'indeterminate result for {0}'.format([p.name for p in self._pair]))
@@ -1871,8 +2111,8 @@ class ComparisonList(_ComparisonCommon):
                 return retval
 
         for i in range(0, max(length)):
-            c = Comparison(lname=self.stuff[0][i],
-                           rname=self.stuff[1][i],
+            c = Comparison(litem=Items.find_or_create(self.stuff[0][i], root),
+                           ritem=Items.find_or_create(self.stuff[1][i], root),
                            comparators=self.comparators,
                            ignores=self.ignores,
                            exit_asap=self.exit_asap).cmp()
@@ -1892,3 +2132,6 @@ class ComparisonList(_ComparisonCommon):
             self.logger.log(SAMES, 'Same {0}'.format(self.__class__.__name__))
 
         return result
+
+# : used to parent top level Items
+root = Item('{root}', True)

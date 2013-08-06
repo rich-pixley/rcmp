@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <08-Jul-2013 17:02:39 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
+# Time-stamp: <08-Aug-2013 14:28:48 PDT by rich@noir.com>
 
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
@@ -76,13 +76,13 @@ class testBasics(object):
 
     def __init__(self):
         self.testfilenames = [rcmp_py, tests_py]
-        self.itestfiles = [rcmp.Items.find_or_create(f) for f in self.testfilenames]
+        self.itestfiles = [rcmp.Items.find_or_create(f, rcmp.root) for f in self.testfilenames]
 
     def setUp(self):
-        pass
+        rcmp.Items.reset()
 
     def tearDown(self):
-        pass
+        rcmp.Items.reset()
 
     @raises(rcmp.IndeterminateResult)
     def testEmpty(self):
@@ -98,67 +98,67 @@ class testBasics(object):
 
     def testNoSuchRight(self):
         assert_equal(rcmp.Comparison(lname=self.testfilenames[0], rname=self.nosuch, comparators=[
-            rcmp.NoSuchFileComparator(),
+            rcmp.NoSuchFileComparator,
             ], exit_asap=self.exit_asap).cmp(), rcmp.Different)
 
     def testNoSuchLeft(self):
         assert_equal(rcmp.Comparison(lname=self.nosuch, rname=self.testfilenames[0], comparators=[
-            rcmp.NoSuchFileComparator(),
+            rcmp.NoSuchFileComparator,
             ], exit_asap=self.exit_asap).cmp(), rcmp.Different)
 
     def testNoSuchBoth(self):
         assert_equal(rcmp.Comparison(lname=self.nosuch, rname=self.nosuch, comparators=[
-            rcmp.NoSuchFileComparator(),
+            rcmp.NoSuchFileComparator,
             ], exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
     @raises(rcmp.IndeterminateResult)
     def testNoSuchNeither(self):
         assert_false(rcmp.Comparison(lname=self.testfilenames[0], rname=self.testfilenames[0], comparators=[
-            rcmp.NoSuchFileComparator(),
+            rcmp.NoSuchFileComparator,
             ], exit_asap=self.exit_asap).cmp())
 
     def testInode(self):
         assert_equal(rcmp.Comparison(lname=self.testfilenames[0], rname=self.testfilenames[0], comparators=[
-            rcmp.InodeComparator(),
+            rcmp.InodeComparator,
             ], exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
     def testInodeList(self):
         assert_equal(rcmp.ComparisonList([[self.testfilenames[0]], [self.testfilenames[0]]], comparators=[
-            rcmp.InodeComparator(),
+            rcmp.InodeComparator,
             ], exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
     @raises(rcmp.IndeterminateResult)
     def testInodeIndeterminate(self):
         assert_equal(rcmp.Comparison(lname=self.testfilenames[0], rname=self.testfilenames[1], comparators=[
-            rcmp.InodeComparator(),
+            rcmp.InodeComparator,
             ], exit_asap=self.exit_asap).cmp(), False)
 
     @raises(rcmp.IndeterminateResult)
     def testInodeIndeterminateList(self):
         assert_equal(rcmp.ComparisonList([[self.testfilenames[0]], [self.testfilenames[1]]], comparators=[
-            rcmp.InodeComparator(),
+            rcmp.InodeComparator,
             ], exit_asap=self.exit_asap).cmp(), False)
 
     def testBitwise(self):
         assert_equal(rcmp.Comparison(lname=self.testfilenames[0], rname=self.testfilenames[0], comparators=[
-            rcmp.BitwiseComparator(),
+            rcmp.BitwiseComparator,
             ], exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
     def testBitwiseList(self):
         assert_equal(rcmp.ComparisonList([[self.testfilenames[0]], [self.testfilenames[0]]], comparators=[
-            rcmp.BitwiseComparator(),
+            rcmp.BitwiseComparator,
             ], exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
     @raises(rcmp.IndeterminateResult)
     def testBitwiseIndeterminate(self):
         assert_equal(rcmp.Comparison(lname=self.testfilenames[0], rname=self.testfilenames[1], comparators=[
-            rcmp.BitwiseComparator(),
+            rcmp.BitwiseComparator,
             ], exit_asap=self.exit_asap).cmp(), False)
 
     @raises(rcmp.IndeterminateResult)
     def testBitwiseIndeterminateList(self):
         assert_equal(rcmp.ComparisonList([[self.testfilenames[0]], [self.testfilenames[1]]], comparators=[
-            rcmp.BitwiseComparator(),
+            rcmp.BitwiseComparator,
             ], exit_asap=self.exit_asap).cmp(), False)
 
     def testElf(self):
@@ -169,7 +169,7 @@ class testBasics(object):
         assert_equal(rcmp.Comparison(lname=lname,
                                      rname=rname,
                                      comparators=[
-        				rcmp.ElfComparator(),
+        				rcmp.ElfComparator,
                                      ], exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
 class testBasicsSlow(testBasics):
@@ -183,47 +183,52 @@ class testDirDirect(object):
     exit_asap = True
 
     def setUp(self):
+        rcmp.Items.reset()
         os.makedirs(self.emptydirname)
         os.makedirs(os.path.join(self.dirnotemptybase, self.foilername))
 
     def tearDown(self):
+        rcmp.Items.reset()
         rmtree(self.emptydirname)
         rmtree(self.dirnotemptybase)
 
     def testDirDirect(self):
-        itestdir = rcmp.Items.find_or_create(self.emptydirname)
-        itestdir2 = rcmp.Items.find_or_create(self.dirnotemptybase)
+        itestdir = rcmp.Items.find_or_create(self.emptydirname, rcmp.root)
+        itestdir2 = rcmp.Items.find_or_create(self.dirnotemptybase, rcmp.root)
+
+        ## DirComparator no longer instantiates so we don't have any
+        ## easy way to stub out lower level comparators just now.
+
+        # assert_equal(rcmp.Comparison(litem=itestdir, ritem=itestdir, comparators=[
+        #     rcmp.DirComparator([]),
+        #     ], exit_asap=self.exit_asap).cmp(), rcmp.Same)
+
+        # assert_equal(rcmp.ComparisonList([[self.emptydirname], [self.emptydirname]], comparators=[
+        #     rcmp.DirComparator([]),
+        #     ], exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
         assert_equal(rcmp.Comparison(litem=itestdir, ritem=itestdir, comparators=[
-            rcmp.DirComparator([]),
+            rcmp.DirComparator,
             ], exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
         assert_equal(rcmp.ComparisonList([[self.emptydirname], [self.emptydirname]], comparators=[
-            rcmp.DirComparator([]),
-            ], exit_asap=self.exit_asap).cmp(), rcmp.Same)
-
-        assert_equal(rcmp.Comparison(litem=itestdir, ritem=itestdir, comparators=[
-            rcmp.DirComparator(),
-            ], exit_asap=self.exit_asap).cmp(), rcmp.Same)
-
-        assert_equal(rcmp.ComparisonList([[self.emptydirname], [self.emptydirname]], comparators=[
-            rcmp.DirComparator(),
+            rcmp.DirComparator,
             ], exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
         assert_equal(rcmp.Comparison(litem=itestdir, ritem=itestdir2, comparators=[
-            rcmp.DirComparator(),
+            rcmp.DirComparator,
             ], exit_asap=self.exit_asap).cmp(), rcmp.Different)
 
         assert_equal(rcmp.ComparisonList([[self.emptydirname], [self.dirnotemptybase]], comparators=[
-            rcmp.DirComparator(),
+            rcmp.DirComparator,
             ], exit_asap=self.exit_asap).cmp(), rcmp.Different)
 
         assert_equal(rcmp.ComparisonList([[self.emptydirname], [self.dirnotemptybase]], comparators=[
-            rcmp.DirComparator(),
+            rcmp.DirComparator,
             ], ignores=['*' + self.foilername], exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
     def testReal(self):
-        itestdir = rcmp.Items.find_or_create(self.emptydirname)
+        itestdir = rcmp.Items.find_or_create(self.emptydirname, rcmp.root)
 
         r = rcmp.Comparison(litem=itestdir, ritem=itestdir, exit_asap=self.exit_asap)
         assert_equal(r.cmp(), rcmp.Same)
@@ -235,6 +240,7 @@ class TreeBase(object):
     exit_asap = True
 
     def setUp(self):
+        rcmp.Items.reset()
         self.tdir = tempfile.mkdtemp()
         self.dirs = [os.path.join(self.tdir, dir) for dir in ['red', 'blue']]
 
@@ -252,6 +258,7 @@ class TreeBase(object):
                     print(filename, file=f)
 
     def tearDown(self):
+        rcmp.Items.reset()
         rmtree(self.tdir)
 
 class testTree(TreeBase):
@@ -269,6 +276,7 @@ class testTreeSlow(testTree):
 
 class testTreeAux(TreeBase):
     def setUp(self):
+        rcmp.Items.reset()
         TreeBase.setUp(self)
 
         for dir in self.dirs:
@@ -280,7 +288,7 @@ class testTreeAux(TreeBase):
         assert_equal(rcmp.Comparison(lname=os.path.join(self.dirs[0], 'ham', 'foo.pyc'),
                                      rname=os.path.join(self.dirs[1], 'ham', 'foo.pyc'),
                                      comparators=[
-            				rcmp.BuriedPathComparator(),
+            				rcmp.BuriedPathComparator,
                                         ],
                                      exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
@@ -294,6 +302,7 @@ class testTreeAuxSlow(testTreeAux):
 
 class testSymlinks(TreeBase):
     def setUp(self):
+        rcmp.Items.reset()
         TreeBase.setUp(self)
 
         self.red_sausage = os.path.join(self.dirs[0], 'sausage')
@@ -332,9 +341,11 @@ class FakeComparator(rcmp.Comparator):
     Raise IndeterminateResult for files named 'ham' and return Different
     for others.
     """
-    def _applies(self, thing):
+    @staticmethod
+    def _applies(thing):
         return True
 
+    @classmethod
     def cmp(self, comparison):
         if comparison.pair[0].name.endswith('bar'):
             raise rcmp.IndeterminateResult
@@ -343,6 +354,7 @@ class FakeComparator(rcmp.Comparator):
 
 class testSlow(TreeBase):
     def setUp(self):
+        rcmp.Items.reset()
         TreeBase.setUp(self)
 
         with open(os.path.join(self.dirs[0], 'I', 'alice'), 'w') as fff:
@@ -352,15 +364,15 @@ class testSlow(TreeBase):
 
     def testShort(self):
         assert_equal(rcmp.Comparison(lname=self.dirs[0], rname=self.dirs[1], comparators=[
-            rcmp.DirComparator(),
-            FakeComparator(),
+            rcmp.DirComparator,
+            FakeComparator,
             ], exit_asap=True).cmp(), rcmp.Different)
 
     @raises(rcmp.IndeterminateResult)
     def testLong(self):
         rcmp.Comparison(lname=self.dirs[0], rname=self.dirs[1], comparators=[
-            rcmp.DirComparator(),
-            FakeComparator(),
+            rcmp.DirComparator,
+            FakeComparator,
         ], exit_asap=False).cmp()
 
 class testCommonSuffix(object):
@@ -386,6 +398,7 @@ class testAr(object):
     exit_asap = True
 
     def setUp(self):
+        rcmp.Items.reset()
         with open(self.empty, 'wb') as f:
             f.write('!<arch>\n')
 
@@ -394,49 +407,50 @@ class testAr(object):
         subprocess.check_call(['ar', 'cr', self.third, rcmp_py, tests_py])
 
     def tearDown(self):
+        rcmp.Items.reset()
         for i in [self.empty, self.first, self.second, self.third]:
             os.remove(i)
 
     def testEmpty(self):
         assert_equal(rcmp.Comparison(lname=self.empty, rname=self.empty, comparators=[
-            rcmp.ArMemberMetadataComparator(),
-            rcmp.ArComparator(),
+            rcmp.ArMemberMetadataComparator,
+            rcmp.ArComparator,
             ], exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
     def testIdentical(self):
         r = rcmp.Comparison(lname=self.first, rname=self.first, comparators=[
-            rcmp.ArMemberMetadataComparator(),
-            rcmp.ArComparator(),
-            rcmp.BitwiseComparator(),
+            rcmp.ArMemberMetadataComparator,
+            rcmp.ArComparator,
+            rcmp.BitwiseComparator,
             ], exit_asap=self.exit_asap)
         assert_equal(r.cmp(), rcmp.Same)
 
     def testTwo(self):
         assert_equal(rcmp.Comparison(lname=self.first, rname=self.second, comparators=[
-            rcmp.ArMemberMetadataComparator(),
-            rcmp.ArComparator(),
-            rcmp.BitwiseComparator(),
+            rcmp.ArMemberMetadataComparator,
+            rcmp.ArComparator,
+            rcmp.BitwiseComparator,
             ], exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
     def testDifferent(self):
         assert_equal(rcmp.Comparison(lname=self.first, rname=self.third, comparators=[
-            rcmp.ArMemberMetadataComparator(),
-            rcmp.ArComparator(),
-            rcmp.BitwiseComparator(),
+            rcmp.ArMemberMetadataComparator,
+            rcmp.ArComparator,
+            rcmp.BitwiseComparator,
             ], exit_asap=self.exit_asap).cmp(), rcmp.Different)
 
     def testOtherDifferent(self):
         assert_equal(rcmp.Comparison(lname=self.third, rname=self.first, comparators=[
-            rcmp.ArMemberMetadataComparator(),
-            rcmp.ArComparator(),
-            rcmp.BitwiseComparator(),
+            rcmp.ArMemberMetadataComparator,
+            rcmp.ArComparator,
+            rcmp.BitwiseComparator,
             ], exit_asap=self.exit_asap).cmp(), rcmp.Different)
 
     def testArElf(self):
         r = rcmp.Comparison(lname=self.left, rname=self.right, comparators=[
-            rcmp.ArMemberMetadataComparator(),
-            rcmp.ArComparator(),
-            rcmp.ElfComparator(),
+            rcmp.ArMemberMetadataComparator,
+            rcmp.ArComparator,
+            rcmp.ElfComparator,
             ], exit_asap=self.exit_asap)
         assert_equal(r.cmp(), rcmp.Same)
 
@@ -485,7 +499,7 @@ class testEmpty(SimpleAbstract):
     filenames = ['empty']
 
     comparators = [
-        rcmp.EmptyFileComparator(),
+        rcmp.EmptyFileComparator,
     ]
 
 class testEmptySlow(testEmpty):
@@ -495,12 +509,13 @@ class testAr2(SimpleAbstract):
     filenames = ['archive.a']
 
     comparators = [
-        rcmp.BitwiseComparator(),
-        rcmp.ArMemberMetadataComparator(),
-        rcmp.ArComparator(),
+        rcmp.BitwiseComparator,
+        rcmp.ArMemberMetadataComparator,
+        rcmp.ArComparator,
     ]
 
     def setUp(self):
+        rcmp.Items.reset()
         for side in ['left', 'right']:
             fname = os.path.join('testfiles', side, 'stumper')
 
@@ -514,6 +529,7 @@ class testAr2(SimpleAbstract):
             os.chmod(fname, 0)
 
     def tearDown(self):
+        rcmp.Items.reset()
         for side in ['left', 'right']:
             try:
                 os.remove(os.path.join('testfiles', side, 'stumper'))
@@ -529,30 +545,30 @@ class testAr2Slow(testAr2):
 
 class testAM(SimpleAbstract):
     filenames = ['Makefile']
-    comparators = [rcmp.AMComparator()]
+    comparators = [rcmp.AMComparator]
 
 class testConfigLog(SimpleAbstract):
     # don't know what these were.  :(.
     not_filenames = ['2config.log', 'db-config.log', '3config.log' ]
     filenames = ['config.log', 'config.status' ]
-    comparators = [rcmp.ConfigLogComparator()]
+    comparators = [rcmp.ConfigLogComparator]
 
 # FIXME: need some kernel conf files.
 # class testKernelConf(SimpleAbstract):
 #     filenames = ['auto.conf', 'autoconf.h']
-#     comparators = [rcmp.KernelConfComparator()]
+#     comparators = [rcmp.KernelConfComparator]
 
 class testGzip(SimpleAbstract):
     filenames = ['Makefile.in.gz', 'yo.gz.gz.gz']
-    comparators = [rcmp.GzipComparator(), rcmp.BitwiseComparator()]
+    comparators = [rcmp.GzipComparator, rcmp.BitwiseComparator]
 
 class testZip(SimpleAbstract):
     #filenames = ['jarfile.jar', 'tst_unzip_file.zip', 'third.zip']
     filenames = ['zipfile.zip']
     comparators = [
-        rcmp.ZipMemberMetadataComparator(),
-        rcmp.ZipComparator(),
-        rcmp.BitwiseComparator(),
+        rcmp.ZipMemberMetadataComparator,
+        rcmp.ZipComparator,
+        rcmp.BitwiseComparator,
         ]
 
     testdir = 'testfiles'
@@ -565,6 +581,7 @@ class testZip(SimpleAbstract):
         SimpleAbstract.__init__(self)
 
     def setUp(self):
+        rcmp.Items.reset()
         for fname in [os.path.join(self.testdir, side, self.nullfilename) for side in ['left', 'right']]:
             self.fnames.append(fname)
             with open(fname, 'wb'):
@@ -576,28 +593,29 @@ class testZip(SimpleAbstract):
                 pass
 
     def tearDown(self):
+        rcmp.Items.reset()
         for fname in self.fnames:
             os.remove(fname)
 
 # FIXME: need some test files
 # class testDateBlot(SimpleAbstract):
 #     filenames = ['icu-config', 'acinclude.m4', 'compile.h']
-#     comparators = [rcmp.DateBlotBitwiseComparator()]
+#     comparators = [rcmp.DateBlotBitwiseComparator]
 
 class testCpio(SimpleAbstract):
     filenames = ['cpiofile.cpio']
     comparators = [
-        rcmp.CpioMemberMetadataComparator(),
-        rcmp.CpioComparator(),
-        rcmp.BitwiseComparator(),
+        rcmp.CpioMemberMetadataComparator,
+        rcmp.CpioComparator,
+        rcmp.BitwiseComparator,
         ]
 
 class testTar(SimpleAbstract):
     filenames = ['tarfile.tar']
     comparators = [
-        rcmp.TarMemberMetadataComparator(),
-        rcmp.TarComparator(),
-        rcmp.BitwiseComparator(),
+        rcmp.TarMemberMetadataComparator,
+        rcmp.TarComparator,
+        rcmp.BitwiseComparator,
         ]
 
 # def testNew():

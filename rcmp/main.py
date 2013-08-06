@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <05-Jul-2013 16:10:36 PDT by rich@noir.com>
+# Time-stamp: <07-Aug-2013 14:09:41 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 #
