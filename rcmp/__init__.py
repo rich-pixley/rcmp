@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <08-Aug-2013 15:10:26 PDT by rich@noir.com>
+# Time-stamp: <08-Aug-2013 20:44:09 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -795,8 +795,6 @@ class Box(Comparator):
 
     @classmethod
     def _expand(cls, ignoring, item):
-        cls.logger.log(logging.DEBUG, '{0} expands {1}'.format(cls.__name__, item.name))
-
         for shortname in cls.box_keys(item):
             fullname = cls._packer.join(item.name, shortname)
             ignore = ignoring(fullname)
@@ -805,6 +803,8 @@ class Box(Comparator):
                 continue
 
             newitem = Items.find_or_create(fullname, item, cls)
+
+            cls.logger.log(logging.DEBUG, '{0} expands {1} -> {2}'.format(cls.__name__, item.name, shortname))
             yield (shortname, newitem)
 
     @staticmethod
@@ -1404,7 +1404,7 @@ class TarMemberMetadataComparator(Comparator):
     """
     @staticmethod
     def _applies(item):
-        return item.box is TarComparator
+        return item.parent.box is TarComparator
 
     @classmethod
     def cmp(cls, comparison):
@@ -1417,7 +1417,13 @@ class TarMemberMetadataComparator(Comparator):
             and left.gid == right.gid
             and left.uname == right.uname
             and left.gname == right.gname):
-            return False
+
+            # if the file has no content then we can say conclusively
+            # that they are the same at this point.
+            if left.size == 0:
+                return Same
+            else:
+                return False
         else:
             cls._log_different(comparison)
             return Different
@@ -1476,11 +1482,31 @@ class TarComparator(Box):
 
     @staticmethod
     def member_content(member):
-        return member.parent.tar.extractfile(member.shortname).read()
+        info = member.parent.tar.getmember(member.shortname)
+        assert info
+
+        if info.isdir():
+            return ''
+
+        fileobj = member.parent.tar.extractfile(member.shortname)
+        if not fileobj:
+            TarComparator.logger.log(logging.ERROR, 'member_content could not find {}, ({}), in {}'.format(member.shortname,
+                                                                                                           member.name,
+                                                                                                           member.parent.name))
+            raise NotImplementedError
+        return fileobj.read()
 
     @staticmethod
     def member_isreg(member):
         return member.parent.tar.getmember(member.shortname).isreg()
+
+    @staticmethod
+    def member_isdir(member):
+        return False
+
+    @staticmethod
+    def member_islnk(member):
+        return False
 
     @classmethod
     def cmp(cls, comparison):
@@ -1748,7 +1774,7 @@ class GzipComparator(ContentOnlyBox):
     def _applies(item):
         """
         """
-        return item.content[0:2] == b'\x1f\x8b'
+        return bytes(item.content[0:2]) == b'\x1f\x8b'
 
     @staticmethod
     def box_keys(item):
@@ -1888,6 +1914,7 @@ class _ComparisonCommon(object):
         ConfigLogComparator,
         KernelConfComparator,
         ZipComparator,
+        TarMemberMetadataComparator,
         TarComparator, # must be before GzipComparator
         GzipComparator,
         CpioMemberMetadataComparator,
