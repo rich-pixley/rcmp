@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <08-Aug-2013 14:28:48 PDT by rich@noir.com>
+# Time-stamp: <08-Aug-2013 21:33:25 PDT by rich@noir.com>
 
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
@@ -605,17 +605,19 @@ class testZip(SimpleAbstract):
 class testCpio(SimpleAbstract):
     filenames = ['cpiofile.cpio']
     comparators = [
+        rcmp.BitwiseComparator,
+        rcmp.SymlinkComparator,
         rcmp.CpioMemberMetadataComparator,
         rcmp.CpioComparator,
-        rcmp.BitwiseComparator,
         ]
 
 class testTar(SimpleAbstract):
     filenames = ['tarfile.tar']
     comparators = [
+        rcmp.BitwiseComparator,
+        rcmp.SymlinkComparator,
         rcmp.TarMemberMetadataComparator,
         rcmp.TarComparator,
-        rcmp.BitwiseComparator,
         ]
 
 # def testNew():

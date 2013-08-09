@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <08-Aug-2013 20:44:09 PDT by rich@noir.com>
+# Time-stamp: <08-Aug-2013 21:37:54 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -1029,6 +1029,17 @@ class ContentOnlyBox(Box):
     def member_islnk(member):
         return False
 
+class UnixBox(Box):
+    """
+    Archivers like tar and cpio are capable of tracking hard and soft
+    links as well as devices, directories and ownerships, etc.
+    """
+
+    @staticmethod
+    def member_isdir(member):
+        return False
+
+
 @_loggable
 class DirComparator(Box):
     """
@@ -1342,7 +1353,13 @@ class CpioMemberMetadataComparator(Comparator):
             and left.rdevmajor == right.rdevmajor
             and left.rdevminor == right.rdevminor
             and left.filesize == right.filesize):
-            return False
+
+            # if the file has no content then we can say conclusively
+            # that they are the same at this point.
+            if left.filesize == 0:
+                return Same
+            else:
+                return False
         else:
             cls._log_different(comparison)
             return Different
@@ -1357,7 +1374,7 @@ def opencpio(filename, guts):
     cpio.close()
 
 @_loggable
-class CpioComparator(Box):
+class CpioComparator(UnixBox):
     """
     Cpio archive files are different if any of the important members
     are different.
@@ -1388,6 +1405,14 @@ class CpioComparator(Box):
     @staticmethod
     def member_isreg(member):
         return stat.S_ISREG(member.parent.cpio.get_member(member.shortname).mode)
+
+    @staticmethod
+    def member_islnk(member):
+        return stat.S_ISLNK(member.parent.cpio.get_member(member.shortname).mode)
+
+    @staticmethod
+    def member_link(member):
+        return member.content
 
     @classmethod
     def cmp(cls, comparison):
@@ -1441,7 +1466,7 @@ def opentar(filename, mode, fileobj):
     tar.close()
 
 @_loggable
-class TarComparator(Box):
+class TarComparator(UnixBox):
     """
     Tar archive files are different if any of the important members
     are different.
@@ -1501,12 +1526,12 @@ class TarComparator(Box):
         return member.parent.tar.getmember(member.shortname).isreg()
 
     @staticmethod
-    def member_isdir(member):
-        return False
+    def member_islnk(member):
+        return member.parent.tar.getmember(member.shortname).issym()
 
     @staticmethod
-    def member_islnk(member):
-        return False
+    def member_link(member):
+        return member.parent.tar.getmember(member.shortname).linkname
 
     @classmethod
     def cmp(cls, comparison):
