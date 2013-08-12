@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <08-Aug-2013 21:33:25 PDT by rich@noir.com>
+# Time-stamp: <12-Aug-2013 11:59:24 PDT by rich@noir.com>
 
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
@@ -619,6 +619,38 @@ class testTar(SimpleAbstract):
         rcmp.TarMemberMetadataComparator,
         rcmp.TarComparator,
         ]
+
+class testScript(object):
+    def testHelp(self):
+        with open('/dev/null', 'w') as devnull:
+            assert_equal(subprocess.call('rcmp --help'.split(), stdout=devnull, stderr=devnull), 0)
+
+    def testBasic(self):
+        assert_equal(subprocess.call('rcmp testfiles/left testfiles/left'.split()), 0)
+
+    def testFail(self):
+        assert_equal(subprocess.call('rcmp testfiles/main.c testfiles/configure.ac'.split()), 1)
+
+    def testBasicv(self):
+        assert_equal(subprocess.call('rcmp -v testfiles/left testfiles/right'.split()), 0)
+
+    def testBasicRead(self):
+        assert_equal(subprocess.call('rcmp --read testfiles/left testfiles/right'.split()), 0)
+
+    def testBasicMmap(self):
+        assert_equal(subprocess.call('rcmp --mmap testfiles/left testfiles/right'.split()), 0)
+
+    def testIgnores(self):
+        ignorefile = 'ignorefile'
+
+        with open(ignorefile, 'w') as fileobj:
+            fileobj.write('*main.c\n*configure.ac\n')
+
+        with open('/dev/null', 'w') as devnull:
+            assert_equal(subprocess.call('rcmp -i {} testfiles/main.c testfiles/configure.ac'.format(ignorefile).split(),
+                                         stdout=devnull, stderr=devnull), 1)
+        os.remove(ignorefile)
+    
 
 # def testNew():
 #     assert_equal(rcmp.Comparison(lname='testfiles/left/libpulse_0.9.22-6_opal.ipk',

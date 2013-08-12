@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <07-Aug-2013 14:09:41 PDT by rich@noir.com>
+# Time-stamp: <12-Aug-2013 12:30:26 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 #
@@ -54,14 +54,19 @@ def main():
 
     ignores = []
 
-    if os.path.isfile(options.ignorefile):
-        with open(options.ignorefile, 'r') as ignorefile:
-            ignores = [line.strip() for line in ignorefile]
+    for ifile in options.ignorefiles:
+        if os.path.isfile(ifile):
+            with open(ifile, 'r') as ignorefile:
+                ignores += [line.strip() for line in ignorefile]
 
-    return rcmp.Comparison(lname=options.left,
-                           rname=options.right,
-                           ignores=ignores,
-                           exit_asap=options.exit_asap).cmp()
+    rcmp.DirComparator._using_mmap = options.copymethod == rcmp.DirComparator.member_content_mmap
+
+    result = rcmp.Comparison(lname=options.left,
+                             rname=options.right,
+                             ignores=ignores,
+                             exit_asap=options.exit_asap).cmp()
+
+    return 0 if result == rcmp.Same else 1
 
 def _parse_args():
     """
@@ -78,9 +83,15 @@ def _parse_args():
     parser.add_argument('-e', '--exit-asap', '--exit-early',
                         default=False, action='store_true', help='Exit on first difference. [default %(default)s]')
 
-    ignorefiledefault = os.path.expanduser('.rcmpignore')
-    parser.add_argument('-i', '--ignorefile', action='append', type=str, default=ignorefiledefault,
+    defaultignorefiles = [os.path.expanduser('.rcmpignore')]
+    parser.add_argument('-i', '--ignorefile', action='append', type=str, default=defaultignorefiles, dest='ignorefiles',
                         help='Read the named file as ignorefile. [default \'%(default)s\']')
+
+    defaultcopymethod = rcmp.DirComparator.member_content_read
+    parser.add_argument('--read', action='store_const', const=rcmp.DirComparator.member_content_read,
+                        dest='copymethod', default=defaultcopymethod)
+    parser.add_argument('--mmap', action='store_const', const=rcmp.DirComparator.member_content_mmap,
+                        dest='copymethod', default=defaultcopymethod)
 
     parser.add_argument('-v', '--verbose', action='count', help='Be more verbose. (can be repeated)')
 

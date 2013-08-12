@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <08-Aug-2013 21:37:54 PDT by rich@noir.com>
+# Time-stamp: <12-Aug-2013 12:30:39 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -322,11 +322,23 @@ class Item(object):
 
         global _read_count
 
-        if self._content is False:
-            self._content = self.box.member_content(self)
-            self._read_count += 1
-            if self._read_count > _read_count:
-                _read_count = self._read_count
+        try:
+
+            if self._content is False:
+                self._content = self.parent.box.member_content(self)
+                self._read_count += 1
+                if self._read_count > _read_count:
+                    _read_count = self._read_count
+
+        except TypeError:
+            self.logger.log(logging.ERROR, 'self = {}, {}'.format(self, self.name))
+            self.logger.log(logging.ERROR, 'self.parent = {}, {}'.format(self.parent, self.parent.name))
+            self.logger.log(logging.ERROR, 'self.box = {}'.format(self.box))
+            self.logger.log(logging.ERROR, 'self.box.member_content = {}'.format(self.box.member_content))
+
+            self.logger.log(logging.ERROR, 'self.parent.box = {}, {}'.format(self.parent.box, self.parent.box.__name__))
+            self.logger.log(logging.ERROR, 'self.parent.box.member_content = {}'.format(self.parent.box.member_content))
+            raise
 
         return self._content
 
@@ -1069,7 +1081,13 @@ class DirComparator(Box):
         with open(member.name, 'rb') as fd:
             return fd.read()
 
-    member_content = member_content_read
+    _using_mmap = False
+
+    @staticmethod
+    def member_content(member):
+        return (DirComparator.member_content_mmap(member)
+                if DirComparator._using_mmap
+                else DirComparator.member_content_read(member))
 
     @staticmethod
     def member_exists(member):
@@ -2048,7 +2066,7 @@ class Comparison(_ComparisonCommon):
             if i:
                 self.logger.log(logging.ERROR,
                                 'Creating comparison using ignored item {0} cause {1}'.format(item.name, i))
-                raise Ignoring
+                raise sys.exit(1)
 
     def cmp(self):
         """
@@ -2089,12 +2107,7 @@ class Comparison(_ComparisonCommon):
             
             result = comparator.cmp(self)
             if result:
-                if result == Same:
-                    level = INDETERMINATES
-                else:
-                    level = DIFFERENCES
-
-                self.logger.log(level, '{0} {1}'.format(result.__name__, self.__class__.__name__))
+                self.logger.log(logging.DEBUG, '{0} {1}'.format(result.__name__, self.__class__.__name__))
 
                 for item in self.pair:
                     # item.reset()
@@ -2174,7 +2187,7 @@ class ComparisonList(_ComparisonCommon):
                 raise IndeterminateResult
 
             if c is Different:
-                self.logger.log(DIFFERENCES, 'Different {0}'.format(self.__class__.__name__))
+                self.logger.log(logging.DEBUG, 'Different {0}'.format(self.__class__.__name__))
                 result = Different
 
                 if self.exit_asap:
