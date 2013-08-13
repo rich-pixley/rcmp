@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <12-Aug-2013 11:59:24 PDT by rich@noir.com>
+# Time-stamp: <13-Aug-2013 15:17:46 PDT by rich@noir.com>
 
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
@@ -225,7 +225,7 @@ class testDirDirect(object):
 
         assert_equal(rcmp.ComparisonList([[self.emptydirname], [self.dirnotemptybase]], comparators=[
             rcmp.DirComparator,
-            ], ignores=['*' + self.foilername], exit_asap=self.exit_asap).cmp(), rcmp.Same)
+            ], ignores=rcmp.fntore(['*' + self.foilername]), exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
     def testReal(self):
         itestdir = rcmp.Items.find_or_create(self.emptydirname, rcmp.root)
@@ -293,7 +293,7 @@ class testTreeAux(TreeBase):
                                      exit_asap=self.exit_asap).cmp(), rcmp.Same)
 
     def testIgnore(self):
-        assert_equal(rcmp.Comparison(lname=self.dirs[0], rname=self.dirs[1], ignores=['*.pyc'],
+        assert_equal(rcmp.Comparison(lname=self.dirs[0], rname=self.dirs[1], ignores=rcmp.fntore(['*.pyc']),
                                      exit_asap=self.exit_asap).cmp(),
                      rcmp.Same)
 
@@ -655,7 +655,7 @@ class testScript(object):
 # def testNew():
 #     assert_equal(rcmp.Comparison(lname='testfiles/left/libpulse_0.9.22-6_opal.ipk',
 #                                  rname='testfiles/right/libpulse_0.9.22-6_opal.ipk',
-#                                  ignores=['*/temp'], exit_asap=self.exit_asap).cmp(),
+#                                  ignores=rcmp.fntore(['*/temp']), exit_asap=self.exit_asap).cmp(),
 #                  rcmp.Same)
 
 if __name__ == '__main__':

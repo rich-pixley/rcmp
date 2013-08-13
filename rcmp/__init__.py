@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <13-Aug-2013 10:10:18 PDT by rich@noir.com>
+# Time-stamp: <13-Aug-2013 15:20:59 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -614,6 +614,53 @@ class Comparator(object):
         cls.logger.log(INDETERMINATES, cls._log_string('Indeterminate', comparison))
 
 
+class DatePattern(object):
+    def __init__(self, pattern, replacement):
+        self.pattern = pattern
+        self.replacement = replacement
+        self.compiled = re.compile(pattern)
+
+dow = r'(Sun|Mon|Tue|Wed|Thu|Fri|Sat)'
+moy = r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)'
+lmoy = r'(January|February|March|April|May|June|July|August|September|October|November|December)'
+
+date_patterns = [
+    # Sun Feb 13 12:29:28 PST 2011
+    DatePattern(dow + r' ' + moy + r' *[0-9]{1,2} [0-9]{2}:[0-9]{2}:[0-9]{2} (PST|PDT) [0-9]{4}',
+     'Day Mon 00 00:00:00 LOC 2011'),
+    
+    DatePattern(dow + r' ' + moy + r' *[0-9]{1,2} [0-9]{2}:[0-9]{2}:[0-9]{2} [0-9]{4}',
+     'Day Mon 00 00:00:00 2011'),
+
+    # 13 FEB 2011 11:52
+    DatePattern(r'(?i) *[0-9]{1,2} (JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC) [0-9]{4} [0-9]{2}:[0-9]{2}',
+     '00 MON 2011 00:00'),
+
+    # "April  7, 2011"
+    DatePattern(lmoy + r' *[0-9]{1,2}\\?, [0-9]{4}', 'Month 00, 2011'),
+
+    # Wed Apr 13 2011
+    DatePattern(dow + r' ' + moy + r' *[0-9]{1,2} *[0-9]{4}', 'Day Mon 00 2011'),
+
+    # Wed 13 Apr 2011
+    DatePattern(dow + r' *[0-9]{1,2} *' + moy + r' *[0-9]{4}', 'Day 00 Mon 2011'),
+
+    # Wed 13 April 2011
+    DatePattern(dow + r' *[0-9]{1,2} *' + lmoy + r' *[0-9]{4}', 'Day 00 Month 2011'),
+
+    # 2011-04-13
+    DatePattern(r'20*[0-9]{2}-*[0-9]{2}-*[0-9]{2}', '2011-00-00'),
+
+    # Apr 2011
+    DatePattern(moy + r' [0-9]{4}', 'Mon 2011'),
+
+    # 00:00:00
+    DatePattern(r'[0-9]{2}:[0-9]{2}:[0-9]{2}', '00:00:00'),
+
+    # 2011-07-11T170033Z
+    DatePattern(r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z', '00000000T000000Z'),
+    ]
+
 def date_blot(input_string):
     """Convert dates embedded in a string into innocuous constants of uniform length.
     
@@ -622,65 +669,38 @@ def date_blot(input_string):
     """
     retval = input_string
 
-    try:
-        # Sun Feb 13 12:29:28 PST 2011
-        retval = re.sub(r'(Sun|Mon|Tue|Wed|Thu|Fri|Sat) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) *[0-9]{1,2} [0-9]{2}:[0-9]{2}:[0-9]{2} (PST|PDT) [0-9]{4}',
-                        'Day Mon 00 00:00:00 LOC 2011',
-                        retval)
+    for pat in date_patterns:
+        try:
+            retval = pat.compiled.sub(pat.replacement, retval)
 
-        retval = re.sub(r'(Sun|Mon|Tue|Wed|Thu|Fri|Sat) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) *[0-9]{1,2} [0-9]{2}:[0-9]{2}:[0-9]{2} [0-9]{4}',
-                        'Day Mon 00 00:00:00 2011',
-                        retval)
-
-        # 13 FEB 2011 11:52
-        retval = re.sub(r'(?i) *[0-9]{1,2} (JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC) [0-9]{4} [0-9]{2}:[0-9]{2}',
-                        '00 MON 2011 00:00',
-                        retval)
-
-        # "April  7, 2011"
-        retval = re.sub(r'(January|February|March|April|May|June|July|August|September|October|November|December) *[0-9]{1,2}\\?, [0-9]{4}',
-                        'Month 00, 2011',
-                        retval)
-
-        # Wed Apr 13 2011
-        retval = re.sub(r'(Sun|Mon|Tue|Wed|Thu|Fri|Sat) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) *[0-9]{1,2} *[0-9]{4}',
-                        'Day Mon 00 2011',
-                        retval)
-
-        # Wed 13 Apr 2011
-        retval = re.sub(r'(Sun|Mon|Tue|Wed|Thu|Fri|Sat) *[0-9]{1,2} *(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) *[0-9]{4}',
-                        'Day 00 Mon 2011',
-                        retval)
-
-        # Wed 13 April 2011
-        retval = re.sub(r'(Sun|Mon|Tue|Wed|Thu|Fri|Sat) *[0-9]{1,2} *(January|February|March|April|May|June|July|August|September|October|November|December) *[0-9]{4}',
-                        'Day 00 Month 2011',
-                        retval)
-
-        # 2011-04-13
-        retval = re.sub(r'20*[0-9]{2}-*[0-9]{2}-*[0-9]{2}',
-                        '2011-00-00',
-                        retval)
-
-        # Apr 2011
-        retval = re.sub(r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) [0-9]{4}',
-                        'Mon 2011',
-                        retval)
-
-        # 00:00:00
-        retval = re.sub(r'[0-9]{2}:[0-9]{2}:[0-9]{2}',
-                        '00:00:00',
-                        retval)
-
-        # 2011-07-11T170033Z
-        retval = re.sub(r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z',
-                        '00000000T000000Z',
-                        retval)
-
-    except UnicodeError:
-        pass
+        except UnicodeError:
+            pass
 
     return retval
+
+# def ignoring(ignores, fname):
+#     """
+#     Given a list of file names to be ignored and a specific file name
+#     to check, return the first ignore pattern from the list that
+#     matches the file name.
+
+#     :param ignores: ignore patterns
+#     :type ignores: list of strings
+#     :param fname: file name to check
+#     :type fname: string
+#     :rtype: string or False (Can be used as a predicate.)
+#     """
+#     for ignore in ignores:
+#         if fnmatch.fnmatch(fname, ignore):
+#             return ignore
+
+#     return False
+
+def fntore(names):
+    """
+    Convert a list of wildcard style patterns into a list of compiled regexps.
+    """
+    return [re.compile(fnmatch.translate(n)) for n in names]
 
 def ignoring(ignores, fname):
     """
@@ -695,8 +715,13 @@ def ignoring(ignores, fname):
     :rtype: string or False (Can be used as a predicate.)
     """
     for ignore in ignores:
-        if fnmatch.fnmatch(fname, ignore):
-            return ignore
+        try:
+            if ignore.match(fname):
+                return ignore
+
+        except AttributeError:
+            logger.log(logging.ERROR, 'ignore = {}'.format(ignore))
+            raise
 
     return False
 
@@ -1069,7 +1094,10 @@ class DirComparator(Box):
 
     @staticmethod
     def box_keys(item):
-        return sorted(os.listdir(item.name))
+        if not hasattr(item, 'dirs'):
+            item.dirs = os.listdir(item.name)
+
+        return item.dirs
 
     @staticmethod
     def member_content_mmap(member):
@@ -1451,7 +1479,7 @@ class TarMemberMetadataComparator(Comparator):
 
     @classmethod
     def cmp(cls, comparison):
-        (left, right) = [i.parent.tar.getmember(i.shortname) for i in comparison.pair]
+        (left, right) = [i.parent.box.getmember(i) for i in comparison.pair]
 
         if (left.mode == right.mode
             and left.type == right.type
@@ -1516,16 +1544,26 @@ class TarComparator(UnixBox):
         #return (item.content.find('ustar', 257, 264) > -1)
                 
     @staticmethod
+    def getmember(item):
+        if not hasattr(item, 'member'):
+            item.member = item.parent.tar.getmember(item.shortname)
+
+        return item.member
+
+    @staticmethod
     def box_keys(item):
-        return item.tar.getnames()
+        if not hasattr(item, 'names'):
+            item.names = item.tar.getnames()
+
+        return item.names
 
     @staticmethod
     def member_size(member):
-        return member.parent.tar.getmember(member.shortname).size
+        return member.parent.box.getmember(member).size
 
     @staticmethod
     def member_content(member):
-        info = member.parent.tar.getmember(member.shortname)
+        info = member.parent.box.getmember(member)
         assert info
 
         if info.isdir() or info.isdev():
@@ -1541,15 +1579,15 @@ class TarComparator(UnixBox):
 
     @staticmethod
     def member_isreg(member):
-        return member.parent.tar.getmember(member.shortname).isreg()
+        return member.parent.box.getmember(member).isreg()
 
     @staticmethod
     def member_islnk(member):
-        return member.parent.tar.getmember(member.shortname).issym()
+        return member.parent.box.getmember(member).issym()
 
     @staticmethod
     def member_link(member):
-        return member.parent.tar.getmember(member.shortname).linkname
+        return member.parent.box.getmember(member).linkname
 
     @classmethod
     def cmp(cls, comparison):

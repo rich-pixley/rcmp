@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <12-Aug-2013 12:30:26 PDT by rich@noir.com>
+# Time-stamp: <13-Aug-2013 15:44:31 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 #
@@ -22,8 +22,10 @@ Shell callable driver for the :py:mod:`rcmp` library.
 """
 
 import argparse
+import fnmatch
 import logging
 import os
+import re
 
 import rcmp
 
@@ -63,7 +65,7 @@ def main():
 
     result = rcmp.Comparison(lname=options.left,
                              rname=options.right,
-                             ignores=ignores,
+                             ignores=rcmp.fntore(ignores),
                              exit_asap=options.exit_asap).cmp()
 
     return 0 if result == rcmp.Same else 1
