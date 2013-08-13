@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <12-Aug-2013 12:30:39 PDT by rich@noir.com>
+# Time-stamp: <13-Aug-2013 10:10:18 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -1528,7 +1528,7 @@ class TarComparator(UnixBox):
         info = member.parent.tar.getmember(member.shortname)
         assert info
 
-        if info.isdir():
+        if info.isdir() or info.isdev():
             return ''
 
         fileobj = member.parent.tar.extractfile(member.shortname)
