@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <14-Aug-2013 15:24:40 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
+# Time-stamp: <14-Aug-2013 15:24:59 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -2013,9 +2013,9 @@ class _ComparisonCommon(object):
         ConfigLogComparator,
         KernelConfComparator,
         ZipComparator,
+        GzipComparator,
         TarMemberMetadataComparator,
         TarComparator, # must be before GzipComparator
-        GzipComparator,
         CpioMemberMetadataComparator,
         CpioComparator,
         DateBlotBitwiseComparator,
