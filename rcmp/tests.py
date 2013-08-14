@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <13-Aug-2013 15:17:46 PDT by rich@noir.com>
+# Time-stamp: <14-Aug-2013 15:23:08 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
 
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
@@ -494,6 +494,12 @@ class SimpleAbstract(object):
         for left, right in zip(self.lefts, self.rights):
             r = rcmp.Comparison(lname=left, rname=right, exit_asap=self.exit_asap)
             assert_equal(r.cmp(), rcmp.Same)
+
+    @raises(rcmp.IndeterminateResult)
+    def testBad(self):
+        for left in self.lefts:
+            r = rcmp.Comparison(lname=left, rname='/dev/null', comparators=self.comparators, exit_asap=self.exit_asap)
+            assert_equal(r.cmp(), rcmp.Different)
 
 class testEmpty(SimpleAbstract):
     filenames = ['empty']
