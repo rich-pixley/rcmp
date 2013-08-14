@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <14-Aug-2013 15:24:59 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
+# Time-stamp: <14-Aug-2013 16:14:53 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -1869,6 +1869,8 @@ class GzipComparator(ContentOnlyBox):
 
     _packer = _Packer('{gzip}')
 
+    _content_name = '{gzipcontent}'
+
     @staticmethod
     def _applies(item):
         """
@@ -1877,7 +1879,7 @@ class GzipComparator(ContentOnlyBox):
 
     @staticmethod
     def box_keys(item):
-        return ['{gzipcontent}']
+        return [GzipComparator._content_name]
 
     @staticmethod
     def member_size(member):
@@ -1885,18 +1887,23 @@ class GzipComparator(ContentOnlyBox):
 
     @staticmethod
     def member_content(member):
-        return member.parent.gz.read()
+        with opengzip(member.parent.name, 'rb', StringIO.StringIO(member.parent.content)) as gzipobj:
+            return gzipobj.read()
 
     @classmethod
     def cmp(cls, comparison):
-        with contextlib.nested(opengzip(comparison.pair[0].name,
-                                        'rb',
-                                        StringIO.StringIO(comparison.pair[0].content)),
-                               opengzip(comparison.pair[1].name,
-                                        'rb',
-                                        StringIO.StringIO(comparison.pair[1].content))) as (comparison.pair[0].gz,
-                                                                                            comparison.pair[1].gz):
-            return super(cls, cls).cmp(comparison)
+        for p in comparison.pair:
+            p.box = cls
+
+        return Comparison(litem=Item(cls._packer.join(comparison.pair[0].name, cls._content_name),
+                                     comparison.pair[0],
+                                     box=cls),
+                          ritem=Item(cls._packer.join(comparison.pair[1].name, cls._content_name),
+                                     comparison.pair[1],
+                                     box=cls),
+                          comparators=comparison.comparators,
+                          ignores=comparison.ignores,
+                          exit_asap=comparison.exit_asap).cmp()
 
 
 @_loggable
