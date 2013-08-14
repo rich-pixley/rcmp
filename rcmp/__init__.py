@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <13-Aug-2013 15:20:59 PDT by rich@noir.com>
+# Time-stamp: <13-Aug-2013 17:07:25 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -220,8 +220,10 @@ import operator
 import os
 import re
 import stat
+import subprocess
 import sys
 import tarfile
+import tempfile
 import zipfile
 
 import elffile
@@ -1297,6 +1299,22 @@ class ElfComparator(Comparator):
             return Same
         else:
             cls._log_different(comparison)
+
+            with tempfile.NamedTemporaryFile(delete=False) as left:
+                leftname = left.name
+                left.write(comparison.pair[0].content)
+
+            lcontent = subprocess.check_output(str('objdump -sfh {}'.format(leftname)).split())
+            os.remove(leftname)
+
+            with tempfile.NamedTemporaryFile(delete=False) as right:
+                rightname = right.name
+                right.write(comparison.pair[1].content)
+
+            rcontent = subprocess.check_output(str('objdump -sfh {}'.format(rightname)).split())
+            os.remove(rightname)
+
+            cls._log_unidiffs([lcontent, rcontent], [i.name for i in comparison.pair])
             return Different
 
 @_loggable
