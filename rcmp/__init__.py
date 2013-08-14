@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <13-Aug-2013 17:07:25 PDT by rich@noir.com>
+# Time-stamp: <14-Aug-2013 15:24:40 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -1894,7 +1894,7 @@ class GzipComparator(ContentOnlyBox):
                                         StringIO.StringIO(comparison.pair[0].content)),
                                opengzip(comparison.pair[1].name,
                                         'rb',
-                                        StringIO.StringIO(comparison.pair[0].content))) as (comparison.pair[0].gz,
+                                        StringIO.StringIO(comparison.pair[1].content))) as (comparison.pair[0].gz,
                                                                                             comparison.pair[1].gz):
             return super(cls, cls).cmp(comparison)
 
