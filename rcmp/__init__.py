@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <14-Aug-2013 22:00:16 PDT by rich@noir.com>
+# Time-stamp: <14-Aug-2013 22:04:15 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -1219,7 +1219,7 @@ class BitwiseComparator(Comparator):
     @classmethod
     def cmp(cls, comparison):
         if (reduce(operator.eq, [i.size for i in comparison.pair])
-            and comparison.pair[0].content.find(comparison.pair[1].content) == 0):
+            and comparison.pair[0].content == comparison.pair[1].content):
             cls._log_same(comparison)
             retval = Same
         else:
