@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <14-Aug-2013 16:14:53 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
+# Time-stamp: <14-Aug-2013 21:55:35 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -130,6 +130,7 @@ Listed in default order of application:
 .. autoclass:: ZipComparator
 .. autoclass:: TarComparator
 .. autoclass:: GzipComparator
+.. autoclass:: Bz2Comparator
 .. autoclass:: CpioMemberMetadataComparator
 .. autoclass:: CpioComparator
 .. autoclass:: DateBlotBitwiseComparator
@@ -201,6 +202,7 @@ __all__ = [
     'ZipComparator',
     'TarComparator',
     'GzipComparator',
+    'Bz2Comparator',
     'CpioMemberMetadataComparator',
     'CpioComparator',
     'DateBlotBitwiseComparator',
@@ -209,12 +211,14 @@ __all__ = [
 
 import StringIO
 import abc
+import bz2file as bz2
 import contextlib
 import difflib
 import errno
 import fnmatch
 import gzip
 import logging
+#import lzma
 import mmap
 import operator
 import os
@@ -823,9 +827,9 @@ class Box(Comparator):
     def _applies(thing):
         raise NotImplementedError
 
-    @staticmethod
+    @classmethod
     @abc.abstractmethod
-    def box_keys(item):
+    def box_keys(cls, item):
         raise NotImplementedError
 
     @classmethod
@@ -1094,8 +1098,8 @@ class DirComparator(Box):
     def _applies(item):
         return item.isdir
 
-    @staticmethod
-    def box_keys(item):
+    @classmethod
+    def box_keys(cls, item):
         if not hasattr(item, 'dirs'):
             item.dirs = os.listdir(item.name)
 
@@ -1373,11 +1377,11 @@ class ArComparator(ContentOnlyBox):
     def _applies(item):
         return item.content.find(ArComparator._magic, 0, len(ArComparator._magic)) == 0
 
-    @staticmethod
-    def box_keys(item):
-        ArComparator.logger.log(logging.DEBUG, '{}.box_keys({}) -> {}'.format(ArComparator.__name__,
-                                                                              item.name,
-                                                                              item.ar.archived_files.keys()))
+    @classmethod
+    def box_keys(cls, item):
+        cls.logger.log(logging.DEBUG, '{}.box_keys({}) -> {}'.format(cls.__name__,
+                                                                     item.name,
+                                                                     item.ar.archived_files.keys()))
         return item.ar.archived_files.keys()
 
     @staticmethod
@@ -1454,8 +1458,8 @@ class CpioComparator(UnixBox):
     def _applies(item):
         return bool(cpiofile.valid_magic(item.content))
 
-    @staticmethod
-    def box_keys(item):
+    @classmethod
+    def box_keys(cls, item):
         return item.cpio.names
 
     @staticmethod
@@ -1535,8 +1539,8 @@ class TarComparator(UnixBox):
     Tar archive files are different if any of the important members
     are different.
 
-    .. note:: must be called before GzipComparator in order to exploit
-       the Python tarfile module's ability to open compressed
+    .. note:: must be called *after* GzipComparator in order to duck
+       the Python tarfile module's pathological performace with compressed
        archives.
 
     .. note:: This is a strategy - there are no instance
@@ -1568,8 +1572,8 @@ class TarComparator(UnixBox):
 
         return item.member
 
-    @staticmethod
-    def box_keys(item):
+    @classmethod
+    def box_keys(cls, item):
         if not hasattr(item, 'names'):
             item.names = item.tar.getnames()
 
@@ -1643,7 +1647,9 @@ class ZipComparator(ContentOnlyBox):
        pairs.
     """
 
-    _packer = _Packer('{zip}')
+    _myname = 'zip'
+
+    _packer = _Packer('{{}}'.format(_myname))
 
     @staticmethod
     def _applies(item):
@@ -1657,8 +1663,8 @@ class ZipComparator(ContentOnlyBox):
 
         return True
 
-    @staticmethod
-    def box_keys(item):
+    @classmethod
+    def box_keys(cls, item):
         return item.zip.namelist()
 
     @staticmethod
@@ -1849,46 +1855,28 @@ class ZipMemberMetadataComparator(Comparator):
             return Different
 
 
-# ZipFile didn't become a context manager until 2.7.  :\.
-import contextlib
-@contextlib.contextmanager
-def opengzip(file, mode, fileobj):
+class Encoder(ContentOnlyBox):
     """
-    .. todo:: remove opengzip once we move to python-3.x
+    Most UN*X compression programs compress a single stream of data.
+    Similarly, many encryption programs do the same.
     """
-    gz = gzip.GzipFile(file, mode, 9, fileobj)
-    yield gz
-    gz.close()
+    __metaclass__ = abc.ABCMeta
 
-@_loggable
-class GzipComparator(ContentOnlyBox):
-    """
-    Gzip archives only have one member but the archive itself sadly
-    includes a timestamp.  You can see the timestamp using "gzip -l -v".
-    """
-
-    _packer = _Packer('{gzip}')
-
-    _content_name = '{gzipcontent}'
+    # : 
+    _content_name = None
 
     @staticmethod
-    def _applies(item):
-        """
-        """
-        return bytes(item.content[0:2]) == b'\x1f\x8b'
+    @abc.abstractmethod
+    def open(filename, mode, fileobj):
+        raise NotImplementedError
 
-    @staticmethod
-    def box_keys(item):
-        return [GzipComparator._content_name]
+    @classmethod
+    def box_keys(cls, item):
+        return [cls._content_name]
 
     @staticmethod
     def member_size(member):
         return len(member.content)
-
-    @staticmethod
-    def member_content(member):
-        with opengzip(member.parent.name, 'rb', StringIO.StringIO(member.parent.content)) as gzipobj:
-            return gzipobj.read()
 
     @classmethod
     def cmp(cls, comparison):
@@ -1905,6 +1893,103 @@ class GzipComparator(ContentOnlyBox):
                           ignores=comparison.ignores,
                           exit_asap=comparison.exit_asap).cmp()
 
+@_loggable
+class GzipComparator(Encoder):
+    """
+    Gzip archives only have one member but the archive itself sadly
+    includes a timestamp.  You can see the timestamp using "gzip -l -v".
+    """
+
+    _myname = 'gzip'
+
+    _packer = _Packer('{{{}}}'.format(_myname))
+
+    _content_name = '{{{}content}}'.format(_myname)
+
+    @staticmethod
+    @contextlib.contextmanager
+    def open(filename, mode, fileobj):
+        # GzipFile didn't become a context manager until 2.7.  :\.
+        gz = gzip.GzipFile(filename, mode, 9, fileobj)
+        yield gz
+        gz.close()
+
+    @staticmethod
+    def _applies(item):
+        return bytes(item.content[0:2]) == b'\x1f\x8b'
+
+    @staticmethod
+    def member_content(member):
+        with GzipComparator.open(member.parent.name, 'rb', StringIO.StringIO(member.parent.content)) as gzipobj:
+            return gzipobj.read()
+
+
+@_loggable
+class BZ2Comparator(Encoder):
+    """
+    BZ2 archives only have one member.
+    """
+
+    _myname = 'bz2'
+
+    _packer = _Packer('{{{}}}'.format(_myname))
+
+    _content_name = '{{{}content}}'.format(_myname)
+
+    # BZ2File didn't become a context manager until 2.7.  :\.
+    @staticmethod
+    @contextlib.contextmanager
+    def open(filename, mode, fileobj):
+        """
+        .. todo:: remove openzip once we drop python-2.6
+        """
+        bobj = bz2.BZ2File(fileobj if fileobj else filename, mode, None, 9)
+        yield bobj
+        bobj.close()
+
+    @staticmethod
+    def _applies(item):
+        return bytes(item.content[0:2]) == b'BZ'
+
+    @staticmethod
+    def member_content(member):
+        with BZ2Comparator.open(member.parent.name, 'rb', StringIO.StringIO(member.parent.content)) as bz2obj:
+            return bz2obj.read()
+
+@_loggable
+class XZComparator(Encoder):
+    """
+    XZ archives only have one member.
+    """
+
+    _myname = 'xz'
+
+    _packer = _Packer('{{{}}}'.format(_myname))
+
+    _content_name = '{{{}content}}'.format(_myname)
+
+    @staticmethod
+    @contextlib.contextmanager
+    def open(filename, mode, fileobj):
+        xzobj = lzma.LZMAFile(fileobj if fileobj else filename, mode)
+        yield xzobj
+        xzobj.close()
+
+    @staticmethod
+    def _applies(item):
+        """
+        ..note:: lzma format files have no magic number.  So while the lzma
+                 library can open them, we don't really have a way to recognize
+                 them easily other than just attempting to open and living with
+                 failures.  But that seems pretty expensive and besides, who
+                 uses lzma?
+        """
+        return bytes(item.content[0:6]) == b'\xfd7zXZ\x00'
+
+    @staticmethod
+    def member_content(member):
+        with XZComparator.open(member.parent.name, 'rb', StringIO.StringIO(member.parent.content)) as xzobj:
+            return xzobj.read()
 
 @_loggable
 class FailComparator(Comparator):
@@ -2019,8 +2104,10 @@ class _ComparisonCommon(object):
         AMComparator,
         ConfigLogComparator,
         KernelConfComparator,
-        ZipComparator,
+        #XZComparator,
+        BZ2Comparator,
         GzipComparator,
+        ZipComparator,
         TarMemberMetadataComparator,
         TarComparator, # must be before GzipComparator
         CpioMemberMetadataComparator,

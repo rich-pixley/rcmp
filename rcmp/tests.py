@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <14-Aug-2013 15:23:08 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
+# Time-stamp: <14-Aug-2013 21:55:56 PDT by rich@noir.com>
 
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
@@ -567,6 +567,14 @@ class testConfigLog(SimpleAbstract):
 class testGzip(SimpleAbstract):
     filenames = ['Makefile.in.gz', 'yo.gz.gz.gz']
     comparators = [rcmp.GzipComparator, rcmp.BitwiseComparator]
+
+class testBZ2(SimpleAbstract):
+    filenames = ['Makefile.in.bz2', 'yo.bz2.bz2.bz2']
+    comparators = [rcmp.BZ2Comparator, rcmp.BitwiseComparator]
+
+# class testXZ(SimpleAbstract):
+#     filenames = ['Makefile.in.xz', 'yo.xz.xz.xz']
+#     comparators = [rcmp.XZComparator, rcmp.BitwiseComparator]
 
 class testZip(SimpleAbstract):
     #filenames = ['jarfile.jar', 'tst_unzip_file.zip', 'third.zip']

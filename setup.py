@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <05-Jul-2013 16:07:20 PDT by rich@noir.com>
+# Time-stamp: <14-Aug-2013 21:55:05 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -35,6 +35,7 @@ memail='rich@noir.com'
 setup_requirements = [
     	'nose',
         'arpy',
+        'bz2file',
         'cpiofile',
         'elffile',
         'setuptools_git',
@@ -72,6 +73,7 @@ setuptools.setup(
     setup_requires=setup_requirements,
     install_requires=[
         'arpy',
+        'bz2file',
         'cpiofile',
         'elffile',
         ],
