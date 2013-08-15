@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <14-Aug-2013 21:55:05 PDT by rich@noir.com>
+# Time-stamp: <14-Aug-2013 21:59:52 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -38,6 +38,7 @@ setup_requirements = [
         'bz2file',
         'cpiofile',
         'elffile',
+        'backports.lzma',
         'setuptools_git',
         ]
 
@@ -76,6 +77,7 @@ setuptools.setup(
         'bz2file',
         'cpiofile',
         'elffile',
+        'backports.lzma',
         ],
     py_modules=['rcmp'],
     packages=setuptools.find_packages(),

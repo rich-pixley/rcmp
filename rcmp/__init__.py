@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <14-Aug-2013 21:55:35 PDT by rich@noir.com>
+# Time-stamp: <14-Aug-2013 22:00:16 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -218,7 +218,7 @@ import errno
 import fnmatch
 import gzip
 import logging
-#import lzma
+import backports.lzma as lzma
 import mmap
 import operator
 import os
@@ -2104,7 +2104,7 @@ class _ComparisonCommon(object):
         AMComparator,
         ConfigLogComparator,
         KernelConfComparator,
-        #XZComparator,
+        XZComparator,
         BZ2Comparator,
         GzipComparator,
         ZipComparator,
