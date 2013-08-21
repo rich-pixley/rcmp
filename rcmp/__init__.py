@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <20-Aug-2013 19:40:03 PDT by rich@noir.com>
+# Time-stamp: <20-Aug-2013 19:54:31 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -707,6 +707,12 @@ def fntore(names):
     Convert a list of wildcard style patterns into a list of compiled regexps.
     """
     return [re.compile(fnmatch.translate(n)) for n in names]
+
+def fntoreconcat(names):
+    """
+    Convert a list of wildcard style patterns into a list of compiled regexps.
+    """
+    return [re.compile('|'.join([fnmatch.translate(n) for n in names]))]
 
 def ignoring(ignores, fname):
     """

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <20-Aug-2013 19:36:15 PDT by rich@noir.com>
+# Time-stamp: <20-Aug-2013 19:57:09 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 #
@@ -61,9 +61,14 @@ def main():
             with open(ifile, 'r') as ignorefile:
                 ignores += [line.strip() for line in ignorefile]
 
+    if options.crunch:
+        ignores = rcmp.fntoreconcat(ignores)
+    else:
+        ignores = rcmp.fntore(ignores)
+
     result = rcmp.Comparison(lname=options.left,
                              rname=options.right,
-                             ignores=rcmp.fntore(ignores),
+                             ignores=ignores,
                              exit_asap=options.exit_asap).cmp()
 
     return 0 if result == rcmp.Same else 1
@@ -82,6 +87,9 @@ def _parse_args():
 
     parser.add_argument('-e', '--exit-asap', '--exit-early',
                         default=False, action='store_true', help='Exit on first difference. [default %(default)s]')
+
+    parser.add_argument('-c', '--crunch',
+                        default=False, action='store_true', help='smash ignores into a single regexp [default %(default)s]')
 
     defaultignorefiles = [os.path.expanduser('.rcmpignore')]
     parser.add_argument('-i', '--ignorefile', action='append', type=str, default=defaultignorefiles, dest='ignorefiles',
