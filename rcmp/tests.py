@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <14-Aug-2013 21:59:54 PDT by rich@noir.com>
+# Time-stamp: <20-Aug-2013 19:37:02 PDT by rich@noir.com>
 
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
@@ -647,12 +647,6 @@ class testScript(object):
 
     def testBasicv(self):
         assert_equal(subprocess.call('rcmp -v testfiles/left testfiles/right'.split()), 0)
-
-    def testBasicRead(self):
-        assert_equal(subprocess.call('rcmp --read testfiles/left testfiles/right'.split()), 0)
-
-    def testBasicMmap(self):
-        assert_equal(subprocess.call('rcmp --mmap testfiles/left testfiles/right'.split()), 0)
 
     def testIgnores(self):
         ignorefile = 'ignorefile'

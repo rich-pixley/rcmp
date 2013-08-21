@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <14-Aug-2013 22:04:15 PDT by rich@noir.com>
+# Time-stamp: <20-Aug-2013 19:35:58 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -323,7 +323,7 @@ class Item(object):
         """
         The contents of the entire file, in memory.
 
-        :rtype: bytearray or possibly an mmap'd section of file.
+        :rtype: bytearray.
         """
 
         global _read_count
@@ -1106,22 +1106,16 @@ class DirComparator(Box):
         return item.dirs
 
     @staticmethod
-    def member_content_mmap(member):
+    @contextlib.contextmanager
+    def member_mmap(member):
         with open(member.name, 'rb') as fd:
-            return mmap.mmap(fd.fileno(), 0, mmap.MAP_SHARED, mmap.PROT_READ)[:]
-
-    @staticmethod
-    def member_content_read(member):
-        with open(member.name, 'rb') as fd:
-            return fd.read()
-
-    _using_mmap = False
+            yield mmap.mmap(fd.fileno(), 0, mmap.MAP_SHARED, mmap.PROT_READ)
+            fd.close()
 
     @staticmethod
     def member_content(member):
-        return (DirComparator.member_content_mmap(member)
-                if DirComparator._using_mmap
-                else DirComparator.member_content_read(member))
+        with open(member.name, 'rb') as fd:
+            return fd.read()
 
     @staticmethod
     def member_exists(member):
@@ -1218,13 +1212,52 @@ class BitwiseComparator(Comparator):
 
     @classmethod
     def cmp(cls, comparison):
-        if (reduce(operator.eq, [i.size for i in comparison.pair])
-            and comparison.pair[0].content == comparison.pair[1].content):
-            cls._log_same(comparison)
-            retval = Same
-        else:
+        # if they're not the same size, then they're not bitwise identical.
+
+        if not reduce(operator.eq, [i.size for i in comparison.pair]):
             cls._log_indeterminate(comparison)
-            retval = False
+            return False
+
+        # If we already have their content mapped, or they aren't file
+        # system files, then use content.  If they're the same, then
+        # we can drop the content because we won't need it again.
+
+        if (reduce(operator.eq, [bool(i._content) for i in comparison.pair] + [True])
+             or comparison.pair[0].parent.box != DirComparator):
+            if comparison.pair[0].content == comparison.pair[1].content:
+                for i in comparison.pair:
+                    i.reset()
+
+                cls._log_same(comparison)
+                return Same
+
+            else:
+                cls._log_indeterminate(comparison)
+                return False
+
+        # at this point we know that a) we are regular files in file
+        # system files and b) neither one yet has _content.
+
+        # This is clumsy but the vast majority of file comparisons
+        # turn out to be Same on BitwiseComparator.  And I was sorry
+        # to lose the mmap earlier so I'm putting it back in here.
+
+        # Mmap both files.  Compare.  If they're the same, we're done
+        # with these files.  If they're not the same, then copy their
+        # contents out of mmap into _content.
+
+        with contextlib.nested(DirComparator.member_mmap(comparison.pair[0]),
+                               DirComparator.member_mmap(comparison.pair[1])) as (m1, m2):
+            if m1 == m2:
+                cls._log_same(comparison)
+                return Same
+
+            else:
+                comparison.pair[0]._content = m1[:]
+                comparison.pair[1]._content = m2[:]
+
+                cls._log_indeterminate(comparison)
+                retval = False
 
         return retval
 

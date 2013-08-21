@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <13-Aug-2013 15:44:31 PDT by rich@noir.com>
+# Time-stamp: <20-Aug-2013 19:36:15 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 #
@@ -61,8 +61,6 @@ def main():
             with open(ifile, 'r') as ignorefile:
                 ignores += [line.strip() for line in ignorefile]
 
-    rcmp.DirComparator._using_mmap = options.copymethod == rcmp.DirComparator.member_content_mmap
-
     result = rcmp.Comparison(lname=options.left,
                              rname=options.right,
                              ignores=rcmp.fntore(ignores),
@@ -88,12 +86,6 @@ def _parse_args():
     defaultignorefiles = [os.path.expanduser('.rcmpignore')]
     parser.add_argument('-i', '--ignorefile', action='append', type=str, default=defaultignorefiles, dest='ignorefiles',
                         help='Read the named file as ignorefile. [default \'%(default)s\']')
-
-    defaultcopymethod = rcmp.DirComparator.member_content_read
-    parser.add_argument('--read', action='store_const', const=rcmp.DirComparator.member_content_read,
-                        dest='copymethod', default=defaultcopymethod)
-    parser.add_argument('--mmap', action='store_const', const=rcmp.DirComparator.member_content_mmap,
-                        dest='copymethod', default=defaultcopymethod)
 
     parser.add_argument('-v', '--verbose', action='count', help='Be more verbose. (can be repeated)')
 
