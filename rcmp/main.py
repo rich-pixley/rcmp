@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <20-Aug-2013 19:57:09 PDT by rich@noir.com>
+# Time-stamp: <20-Aug-2013 19:57:50 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 #
@@ -94,6 +94,8 @@ def _parse_args():
     defaultignorefiles = [os.path.expanduser('.rcmpignore')]
     parser.add_argument('-i', '--ignorefile', action='append', type=str, default=defaultignorefiles, dest='ignorefiles',
                         help='Read the named file as ignorefile. [default \'%(default)s\']')
+    parser.add_argument('--no-ignores', action='store_const', dest='ignorefiles', const=[],
+                        help='reset the list of ignore files')
 
     parser.add_argument('-v', '--verbose', action='count', help='Be more verbose. (can be repeated)')
 
