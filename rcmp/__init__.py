@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <20-Aug-2013 19:35:58 PDT by rich@noir.com>
+# Time-stamp: <20-Aug-2013 19:40:03 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -209,16 +209,16 @@ __all__ = [
     'FailComparator',
 ]
 
-import StringIO
 import abc
+import backports.lzma as lzma
 import bz2file as bz2
 import contextlib
 import difflib
 import errno
 import fnmatch
 import gzip
+import io
 import logging
-import backports.lzma as lzma
 import mmap
 import operator
 import os
@@ -1428,10 +1428,10 @@ class ArComparator(ContentOnlyBox):
     @classmethod
     def cmp(cls, comparison):
         with contextlib.nested(openar(comparison.pair[0].name,
-                                      StringIO.StringIO(comparison.pair[0].content)),
+                                      io.BytesIO(comparison.pair[0].content)),
                                openar(comparison.pair[1].name,
-                                      StringIO.StringIO(comparison.pair[1].content))) as (comparison.pair[0].ar,
-                                                                                          comparison.pair[1].ar):
+                                      io.BytesIO(comparison.pair[1].content))) as (comparison.pair[0].ar,
+                                                                                   comparison.pair[1].ar):
             return super(cls, cls).cmp(comparison)
 
 
@@ -1589,7 +1589,7 @@ class TarComparator(UnixBox):
         # lucky, we won't need to.
 
         try:
-            tarfile.open(fileobj=StringIO.StringIO(item.content)).close()
+            tarfile.open(fileobj=io.BytesIO(item.content)).close()
 
         except:
             return False
@@ -1647,11 +1647,11 @@ class TarComparator(UnixBox):
     @classmethod
     def cmp(cls, comparison):
         with contextlib.nested(opentar(comparison.pair[0].name, 'r',
-                                       StringIO.StringIO(comparison.pair[0].content)),
+                                       io.BytesIO(comparison.pair[0].content)),
                                opentar(comparison.pair[1].name,
                                        'r',
-                                       StringIO.StringIO(comparison.pair[1].content))) as (comparison.pair[0].tar,
-                                                                                              comparison.pair[1].tar):
+                                       io.BytesIO(comparison.pair[1].content))) as (comparison.pair[0].tar,
+                                                                                    comparison.pair[1].tar):
             return super(cls, cls).cmp(comparison)
 
 
@@ -1689,7 +1689,7 @@ class ZipComparator(ContentOnlyBox):
         """
         """
         try:
-            zipfile.ZipFile(StringIO.StringIO(item.content), 'r').close()
+            zipfile.ZipFile(io.BytesIO(item.content), 'r').close()
 
         except:
             return False
@@ -1710,9 +1710,9 @@ class ZipComparator(ContentOnlyBox):
 
     @classmethod
     def cmp(cls, comparison):
-        with contextlib.nested(openzip(StringIO.StringIO(comparison.pair[0].content), 'r'),
-                               openzip(StringIO.StringIO(comparison.pair[1].content), 'r')) as (comparison.pair[0].zip,
-                                                                                                   comparison.pair[1].zip):
+        with contextlib.nested(openzip(io.BytesIO(comparison.pair[0].content), 'r'),
+                               openzip(io.BytesIO(comparison.pair[1].content), 'r')) as (comparison.pair[0].zip,
+                                                                                         comparison.pair[1].zip):
 
             if comparison.pair[0].zip.comment != comparison.pair[1].zip.comment:
                 cls._log_different(comparison)
@@ -1953,7 +1953,7 @@ class GzipComparator(Encoder):
 
     @staticmethod
     def member_content(member):
-        with GzipComparator.open(member.parent.name, 'rb', StringIO.StringIO(member.parent.content)) as gzipobj:
+        with GzipComparator.open(member.parent.name, 'rb', io.BytesIO(member.parent.content)) as gzipobj:
             return gzipobj.read()
 
 
@@ -1986,7 +1986,7 @@ class BZ2Comparator(Encoder):
 
     @staticmethod
     def member_content(member):
-        with BZ2Comparator.open(member.parent.name, 'rb', StringIO.StringIO(member.parent.content)) as bz2obj:
+        with BZ2Comparator.open(member.parent.name, 'rb', io.BytesIO(member.parent.content)) as bz2obj:
             return bz2obj.read()
 
 @_loggable
@@ -2021,7 +2021,7 @@ class XZComparator(Encoder):
 
     @staticmethod
     def member_content(member):
-        with XZComparator.open(member.parent.name, 'rb', StringIO.StringIO(member.parent.content)) as xzobj:
+        with XZComparator.open(member.parent.name, 'rb', io.BytesIO(member.parent.content)) as xzobj:
             return xzobj.read()
 
 @_loggable
