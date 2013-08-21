@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <20-Aug-2013 19:54:31 PDT by rich@noir.com>
+# Time-stamp: <21-Aug-2013 09:17:41 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -209,8 +209,13 @@ __all__ = [
     'FailComparator',
 ]
 
+lzma = False
+
 import abc
-import backports.lzma as lzma
+
+if lzma:
+    import backports.lzma as lzma
+
 import bz2file as bz2
 import contextlib
 import difflib
@@ -2143,7 +2148,7 @@ class _ComparisonCommon(object):
         AMComparator,
         ConfigLogComparator,
         KernelConfComparator,
-        XZComparator,
+        #XZComparator,
         BZ2Comparator,
         GzipComparator,
         ZipComparator,

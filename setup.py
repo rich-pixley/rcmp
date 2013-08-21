@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <14-Aug-2013 21:59:52 PDT by rich@noir.com>
+# Time-stamp: <15-Aug-2013 16:30:58 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -32,15 +32,22 @@ __docformat__ = "restructuredtext en"
 me='K Richard Pixley'
 memail='rich@noir.com'
 
-setup_requirements = [
-    	'nose',
-        'arpy',
-        'bz2file',
-        'cpiofile',
-        'elffile',
-        'backports.lzma',
-        'setuptools_git',
-        ]
+lzma = False
+
+install_requires = [
+    'arpy',
+    'bz2file',
+    'cpiofile',
+    'elffile',
+]
+
+if lzma:
+    install_requires.append('backports.lzma')
+
+setup_requirements = install_requires + [
+    'nose',
+    'setuptools_git',
+]
 
 version_tuple = platform.python_version_tuple()
 version = platform.python_version()
@@ -72,13 +79,7 @@ setuptools.setup(
     license='APACHE',
     long_description='',
     setup_requires=setup_requirements,
-    install_requires=[
-        'arpy',
-        'bz2file',
-        'cpiofile',
-        'elffile',
-        'backports.lzma',
-        ],
+    install_requires=install_requires,
     py_modules=['rcmp'],
     packages=setuptools.find_packages(),
     include_package_data=True,

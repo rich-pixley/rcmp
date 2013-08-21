@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <20-Aug-2013 19:37:02 PDT by rich@noir.com>
+# Time-stamp: <21-Aug-2013 09:17:34 PDT by rich@noir.com>
 
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
@@ -572,9 +572,10 @@ class testBZ2(SimpleAbstract):
     filenames = ['Makefile.in.bz2', 'yo.bz2.bz2.bz2']
     comparators = [rcmp.BZ2Comparator, rcmp.BitwiseComparator]
 
-class testXZ(SimpleAbstract):
-    filenames = ['Makefile.in.xz', 'yo.xz.xz.xz']
-    comparators = [rcmp.XZComparator, rcmp.BitwiseComparator]
+if rcmp.lzma:
+    class testXZ(SimpleAbstract):
+        filenames = ['Makefile.in.xz', 'yo.xz.xz.xz']
+        comparators = [rcmp.XZComparator, rcmp.BitwiseComparator]
 
 class testZip(SimpleAbstract):
     #filenames = ['jarfile.jar', 'tst_unzip_file.zip', 'third.zip']
