@@ -943,20 +943,19 @@ class Box(Comparator):
             # already logged earlier
             retval = Different
             if comparison.exit_asap:
-                # comparison.reset()
+                comparison.reset()
                 return retval
 
         if cls._inner_join(comparison) == Different:
             # already logged earlier
             retval = Different
             if comparison.exit_asap:
-                # comparison.reset()
+                comparison.reset()
                 return retval
 
         if retval == Same:
             cls._log_same(comparison)
-
-        #comparison.pair[0].box = comparison.pair[1].box = None
+            comparison.reset()
 
         return retval
 
@@ -1236,9 +1235,7 @@ class BitwiseComparator(Comparator):
         if (reduce(operator.eq, [bool(i._content) for i in comparison.pair] + [True])
              or comparison.pair[0].parent.box != DirComparator):
             if comparison.pair[0].content == comparison.pair[1].content:
-                for i in comparison.pair:
-                    i.reset()
-
+                comparison.reset()
                 cls._log_same(comparison)
                 return Same
 
@@ -2302,11 +2299,7 @@ class Comparison(_ComparisonCommon):
             result = comparator.cmp(self)
             if result:
                 self.logger.log(logging.DEBUG, '{0} {1}'.format(result.__name__, self.__class__.__name__))
-
-                for item in self.pair:
-                    # item.reset()
-                    pass
-
+                self.reset()
                 return result
 
         self.logger.log(INDETERMINATES, 'indeterminate result for {0}'.format([p.name for p in self._pair]))
@@ -2370,15 +2363,18 @@ class ComparisonList(_ComparisonCommon):
                 return retval
 
         for i in range(0, max(length)):
-            c = Comparison(litem=Items.find_or_create(self.stuff[0][i], root),
-                           ritem=Items.find_or_create(self.stuff[1][i], root),
-                           comparators=self.comparators,
-                           ignores=self.ignores,
-                           exit_asap=self.exit_asap).cmp()
+            comparison = Comparison(litem=Items.find_or_create(self.stuff[0][i], root),
+                                    ritem=Items.find_or_create(self.stuff[1][i], root),
+                                    comparators=self.comparators,
+                                    ignores=self.ignores,
+                                    exit_asap=self.exit_asap)
+            c = comparison.cmp()
 
             if not c:
                 self.logger.log(INDETERMINATES, 'Indeterminate {0}'.format(self.__class__.__name__))
                 raise IndeterminateResult
+            else:
+                comparison.reset()
 
             if c is Different:
                 self.logger.log(logging.DEBUG, 'Different {0}'.format(self.__class__.__name__))
@@ -2392,5 +2388,5 @@ class ComparisonList(_ComparisonCommon):
 
         return result
 
-# : used to parent top level Items
+# : this is used to parent top level Items
 root = Item('{root}', True)
