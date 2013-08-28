@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <21-Aug-2013 09:17:34 PDT by rich@noir.com>
+# Time-stamp: <21-Aug-2013 15:54:56 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
 
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
 #
@@ -634,6 +634,15 @@ class testTar(SimpleAbstract):
         rcmp.TarMemberMetadataComparator,
         rcmp.TarComparator,
         ]
+
+class SimilarAbstract(SimpleAbstract):
+    sides = ['red', 'black']
+
+
+class testMap(SimilarAbstract):
+    filenames = ['x.map']
+    comparators = [rcmp.MapComparator]
+
 
 class testScript(object):
     def testHelp(self):

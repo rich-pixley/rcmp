@@ -1,0 +1,6 @@
+Left & right are identical files, just copies.  Important because
+otherwise rcmp will declare them to be identical based on identical
+inodes.
+
+Red & black are files that are similar, but different, though intended
+to compare to be the same.

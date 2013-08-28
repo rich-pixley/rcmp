@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <21-Aug-2013 09:17:41 PDT by rich@noir.com>
+# Time-stamp: <21-Aug-2013 16:00:02 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -2117,6 +2117,30 @@ class SymlinkComparator(Comparator):
 
 
 @_loggable
+class MapComparator(Comparator):
+    """
+    Linker map files include a reference to the output file which is
+    typically a generated temp file name.
+    """
+    @staticmethod
+    def _applies(item):
+        return item.content.startswith('Archive member included')
+
+    _pattern = re.compile('tmp-\d*')
+
+    @classmethod
+    def cmp(cls, comparison):
+        munged = [cls._pattern.sub('tmp-0', i.content) for i in comparison.pair]
+        if reduce(operator.eq, munged):
+            cls._log_same(comparison)
+            return Same
+
+        else:
+            cls._log_indeterminate(comparison)
+            return False
+
+
+@_loggable
 class _ComparisonCommon(object):
     """
     This is a base class that holds utilities common to both
@@ -2153,6 +2177,7 @@ class _ComparisonCommon(object):
         TarComparator, # must be before GzipComparator
         CpioMemberMetadataComparator,
         CpioComparator,
+        MapComparator,
         DateBlotBitwiseComparator,
         FailComparator,
         ]
