@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <21-Aug-2013 16:00:02 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
+# Time-stamp: <28-Aug-2013 14:32:23 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -2124,7 +2124,14 @@ class MapComparator(Comparator):
     """
     @staticmethod
     def _applies(item):
-        return item.content.startswith('Archive member included')
+        try:
+            retval = item.content.startswith('Archive member included')
+
+        except UnicodeDecodeError:
+            # must not be.
+            retval = False
+
+        return retval
 
     _pattern = re.compile('tmp-\d*')
 
