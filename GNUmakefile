@@ -1,4 +1,4 @@
-# Time-stamp: <12-Aug-2013 10:40:49 PDT by rich@noir.com>
+# Time-stamp: <28-Aug-2013 14:28:11 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -74,7 +74,7 @@ rcmp.egg-info/SOURCES.txt: rcmp/__init__.py setup.py ${python}
 	${setuppy} build
 
 .PHONY: check
-check: ${python}
+check: ${python} develop
 	${setuppy} nosetests
 
 sdist_format := bztar
