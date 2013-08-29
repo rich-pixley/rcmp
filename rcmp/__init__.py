@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <28-Aug-2013 14:32:23 PDT by rich@noir.com>
+# Time-stamp: <28-Aug-2013 21:41:12 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -243,6 +243,8 @@ DIFFERENCES = logging.WARNING
 SAMES = logging.WARNING - 1
 INDETERMINATES = logging.WARNING - 2
 
+logging.basicConfig(style='{')
+
 logging.addLevelName(DIFFERENCES, 'differences')
 logging.addLevelName(SAMES, 'sames')
 logging.addLevelName(INDETERMINATES, 'indeterminates')
@@ -259,7 +261,7 @@ pp = pprint.PrettyPrinter()
 # wrapped my brain around metaclasses.
 
 def _loggable(cls):
-    cls.logger = logging.getLogger('{0}.{1}'.format(__name__, cls.__name__))
+    cls.logger = logging.getLogger('{}.{}'.format(__name__, cls.__name__))
     return cls
 
 
@@ -296,9 +298,9 @@ class Item(object):
         self._box = box if box else DirComparator
 
         self.logger.log(logging.DEBUG,
-                        'Item(name = {}, parent = {}, box = {})'.format(name,
-                                                                       parent.name if hasattr(parent, 'name') else 'None',
-                                                                       self._box.__name__))
+                        'Item(name = %s, parent = %s, box = %s)', name,
+                        parent.name if hasattr(parent, 'name') else 'None',
+                        self._box.__name__)
 
     @property
     def box(self):
@@ -342,19 +344,19 @@ class Item(object):
                     _read_count = self._read_count
 
         except TypeError:
-            self.logger.log(logging.ERROR, 'self = {}, {}'.format(self, self.name))
-            self.logger.log(logging.ERROR, 'self.parent = {}, {}'.format(self.parent, self.parent.name))
-            self.logger.log(logging.ERROR, 'self.box = {}'.format(self.box))
-            self.logger.log(logging.ERROR, 'self.box.member_content = {}'.format(self.box.member_content))
+            self.logger.log(logging.ERROR, 'self = %s, %s', self, self.name)
+            self.logger.log(logging.ERROR, 'self.parent = %s, %s', self.parent, self.parent.name)
+            self.logger.log(logging.ERROR, 'self.box = %s', self.box)
+            self.logger.log(logging.ERROR, 'self.box.member_content = %s', self.box.member_content)
 
-            self.logger.log(logging.ERROR, 'self.parent.box = {}, {}'.format(self.parent.box, self.parent.box.__name__))
-            self.logger.log(logging.ERROR, 'self.parent.box.member_content = {}'.format(self.parent.box.member_content))
+            self.logger.log(logging.ERROR, 'self.parent.box = %s, %s', self.parent.box, self.parent.box.__name__)
+            self.logger.log(logging.ERROR, 'self.parent.box.member_content = %s', self.parent.box.member_content)
             raise
 
         return self._content
 
     def reset(self):
-        self.logger.log(logging.DEBUG, 'resetting {}'.format(self.name))
+        self.logger.log(logging.DEBUG, 'resetting %s', self.name)
         self._content = False
 
     @property
@@ -382,7 +384,7 @@ class Item(object):
             return self.parent.box.member_exists(self)
 
         except:
-            self.logger.log(logging.DEBUG, 'self = {}, self.box = {}'.format(self, self.box))
+            self.logger.log(logging.DEBUG, 'self = %s, self.box = %s', self, self.box)
             raise
 
     @property
@@ -428,7 +430,7 @@ class Item(object):
             return self.parent.box.member_isdir(self)
 
         except:
-            self.logger.log(logging.DEBUG, 'isdir self = {}, self.box = {}'.format(self.name, self.box))
+            self.logger.log(logging.DEBUG, 'isdir self = %s, self.box = %s', self.name, self.box)
             raise
 
     @property
@@ -580,7 +582,7 @@ class Comparator(object):
         :type comparison: :py:class:`Comparison`
         :rtype: :py:class:`Same`, :py:class:`Different`, or a non-True value
         """
-        cls.logger.error('{0}.cmp() isn\'t overridden.'.format(cls.__name__))
+        cls.logger.error('%s.cmp() isn\'t overridden.', cls.__name__)
 
         raise NotImplementedError
         return False
@@ -737,7 +739,7 @@ def ignoring(ignores, fname):
                 return ignore
 
         except AttributeError:
-            logger.log(logging.ERROR, 'ignore = {}'.format(ignore))
+            logger.log(logging.ERROR, 'ignore = %s', ignore)
             raise
 
     return False
@@ -845,7 +847,7 @@ class Box(Comparator):
 
     @classmethod
     def _no_mate(cls, name, logger):
-        cls.logger.log(DIFFERENCES, 'Different {0} No mate: {1}'.format(cls.__name__, name))
+        cls.logger.log(DIFFERENCES, 'Different %s No mate: %s', cls.__name__, name)
 
     @classmethod
     def _expand(cls, ignoring, item):
@@ -853,17 +855,17 @@ class Box(Comparator):
             fullname = cls._packer.join(item.name, shortname)
             ignore = ignoring(fullname)
             if ignore:
-                cls.logger.log(SAMES, 'Ignoring {0} cause {1}'.format(fullname, ignore))
+                cls.logger.log(SAMES, 'Ignoring %s cause %s', fullname, ignore)
                 continue
 
             newitem = Items.find_or_create(fullname, item, cls)
 
-            cls.logger.log(logging.DEBUG, '{0} expands {1} -> {2}'.format(cls.__name__, item.name, shortname))
+            cls.logger.log(logging.DEBUG, '%s expands %s -> %s', cls.__name__, item.name, shortname)
             yield (shortname, newitem)
 
     @staticmethod
     def _mates(item, container):
-        #Box.logger.log(logging.DEBUG, '_mates: item = {}, container = {}'.format(item.name, container.name))
+        #Box.logger.log(logging.DEBUG, '_mates: item = %s, container = %s', item.name, container.name)
         return item.shortname in container.box.box_keys(container)
 
     @classmethod
@@ -880,13 +882,13 @@ class Box(Comparator):
             rname = cls._packer.join(rparent.name, shortname)
             ignore = comparison.ignoring(litem.name)
             if ignore:
-                cls.logger.log(SAMES, 'Ignoring {0} cause {1}'.format(lname, ignore))
+                cls.logger.log(SAMES, 'Ignoring %s cause %s', lname, ignore)
                 continue
 
             ritem = Items.find_or_create(rname, rparent, cls)
             if cls._mates(litem, rparent):
                 if spool:
-                    cls.logger.log(logging.DEBUG, 'spooling {}'.format(litem.name))
+                    cls.logger.log(logging.DEBUG, 'spooling %s', litem.name)
                     comparison.children.append(Comparison(litem=litem,
                                                           ritem=ritem,
                                                           comparators=comparison.comparators,
@@ -933,7 +935,7 @@ class Box(Comparator):
         """
         Compare our lists and return the result.
         """
-        cls.logger.log(logging.DEBUG, 'Box.cmp({}, ...'.format(cls.__name__))
+        cls.logger.log(logging.DEBUG, 'Box.cmp(%s, ...', cls.__name__)
 
         retval = Same
         comparison.pair[0].box = comparison.pair[1].box = cls
@@ -982,9 +984,9 @@ class Box(Comparator):
 
         :rtype: boolean
         """
-        Box.logger.log(logging.DEBUG, 'member_exists: member = {}, parent.box({}) -> {}'.format(member.name,
+        Box.logger.log(logging.DEBUG, 'member_exists: member = %s, parent.box(%s) -> %s', member.name,
                                                                                                member.parent.name,
-                                                                                               member.parent.box.box_keys(member.parent)))
+                                                                                               member.parent.box.box_keys(member.parent))
         return member.shortname in member.parent.box.box_keys(member.parent)
 
     @staticmethod
@@ -994,7 +996,7 @@ class Box(Comparator):
 
         :rtype: string
         """
-        Box.logger.log(logging.ERROR, 'member_inode not implemented for {}'.format(member.name))
+        Box.logger.log(logging.ERROR, 'member_inode not implemented for %s', member.name)
         raise NotImplementedError
 
     @staticmethod
@@ -1004,7 +1006,7 @@ class Box(Comparator):
 
         :rtype: string
         """
-        Box.logger.log(logging.ERROR, 'member_device not implemented for {}'.format(member.name))
+        Box.logger.log(logging.ERROR, 'member_device not implemented for %s', member.name)
         raise NotImplementedError
 
     @staticmethod
@@ -1014,7 +1016,7 @@ class Box(Comparator):
 
         :rtype: int
         """
-        Box.logger.log(logging.ERROR, 'member_size not implemented for {}'.format(member.name))
+        Box.logger.log(logging.ERROR, 'member_size not implemented for %s', member.name)
         raise NotImplementedError
 
     @staticmethod
@@ -1029,7 +1031,7 @@ class Box(Comparator):
 
         :rtype: boolean
         """
-        Box.logger.log(logging.ERROR, 'member_isdir not implemented for {}'.format(member.name))
+        Box.logger.log(logging.ERROR, 'member_isdir not implemented for %s', member.name)
         raise NotImplementedError
 
     @staticmethod
@@ -1039,7 +1041,7 @@ class Box(Comparator):
 
         :rtype: boolean
         """
-        Box.logger.log(logging.ERROR, 'member_isreg not implemented for {}'.format(member.name))
+        Box.logger.log(logging.ERROR, 'member_isreg not implemented for %s', member.name)
         raise NotImplementedError
 
     @staticmethod
@@ -1049,7 +1051,7 @@ class Box(Comparator):
 
         :rtype: boolean
         """
-        Box.logger.log(logging.ERROR, 'member_islnk not implemented for {}'.format(member.name))
+        Box.logger.log(logging.ERROR, 'member_islnk not implemented for %s', member.name)
         raise NotImplementedError
 
     @staticmethod
@@ -1060,7 +1062,7 @@ class Box(Comparator):
 
         :rtype: string
         """
-        Box.logger.log(logging.ERROR, 'member_link not implemented for {}'.format(member.name))
+        Box.logger.log(logging.ERROR, 'member_link not implemented for %s', member.name)
         raise NotImplementedError
 
 
@@ -1217,7 +1219,7 @@ class BitwiseComparator(Comparator):
 
     @staticmethod
     def _applies(item):
-        BitwiseComparator.logger.log(logging.DEBUG, 'testing whether BitwiseComparator applies to {}'.format(item.name))
+        BitwiseComparator.logger.log(logging.DEBUG, 'testing whether BitwiseComparator applies to %s', item.name)
         return item.isreg
 
     @classmethod
@@ -1349,14 +1351,14 @@ class ElfComparator(Comparator):
                 leftname = left.name
                 left.write(comparison.pair[0].content)
 
-            lcontent = subprocess.check_output(str('objdump -sfh {}'.format(leftname)).split())
+            lcontent = subprocess.check_output(str('objdump -sfh %s', leftname).split())
             os.remove(leftname)
 
             with tempfile.NamedTemporaryFile(delete=False) as right:
                 rightname = right.name
                 right.write(comparison.pair[1].content)
 
-            rcontent = subprocess.check_output(str('objdump -sfh {}'.format(rightname)).split())
+            rcontent = subprocess.check_output(str('objdump -sfh %s', rightname).split())
             os.remove(rightname)
 
             cls._log_unidiffs([lcontent, rcontent], [i.name for i in comparison.pair])
@@ -1373,8 +1375,8 @@ class ArMemberMetadataComparator(Comparator):
 
     @classmethod
     def cmp(cls, comparison):
-        cls.logger.log(logging.DEBUG, 'cmp: pair[0] = {}'.format(comparison.pair[0].name))
-        cls.logger.log(logging.DEBUG, 'cmp: parent = {}'.format(comparison.pair[0].parent.name))
+        cls.logger.log(logging.DEBUG, 'cmp: pair[0] = %s', comparison.pair[0].name)
+        cls.logger.log(logging.DEBUG, 'cmp: parent = %s', comparison.pair[0].parent.name)
 
         (left, right) = [i.parent.ar.archived_files[i.shortname].header for i in comparison.pair]
 
@@ -1420,9 +1422,9 @@ class ArComparator(ContentOnlyBox):
 
     @classmethod
     def box_keys(cls, item):
-        cls.logger.log(logging.DEBUG, '{}.box_keys({}) -> {}'.format(cls.__name__,
+        cls.logger.log(logging.DEBUG, '%s.box_keys(%s) -> %s', cls.__name__,
                                                                      item.name,
-                                                                     item.ar.archived_files.keys()))
+                                                                     item.ar.archived_files.keys())
         return item.ar.archived_files.keys()
 
     @staticmethod
@@ -1634,9 +1636,9 @@ class TarComparator(UnixBox):
 
         fileobj = member.parent.tar.extractfile(member.shortname)
         if not fileobj:
-            TarComparator.logger.log(logging.ERROR, 'member_content could not find {}, ({}), in {}'.format(member.shortname,
+            TarComparator.logger.log(logging.ERROR, 'member_content could not find %s, (%s), in %s', member.shortname,
                                                                                                            member.name,
-                                                                                                           member.parent.name))
+                                                                                                           member.parent.name)
             raise NotImplementedError
         return fileobj.read()
 
@@ -2207,7 +2209,7 @@ class _ComparisonCommon(object):
         return ignoring(self.ignores, fname)
 
     def cmp(self):
-        self.logger.log(logging.FATAL, '{0} not implemented'.format(self.__class__.__name__))
+        self.logger.log(logging.FATAL, '%s not implemented', self.__class__.__name__)
 
 
 @_loggable
@@ -2258,7 +2260,7 @@ class Comparison(_ComparisonCommon):
         self._pair = value
 
     def reset(self):
-        self.logger.log(logging.DEBUG, 'resetting {}'.format(self.pair[0].name))
+        self.logger.log(logging.DEBUG, 'resetting %s', self.pair[0].name)
         for item in self.pair:
             item.reset()
 
@@ -2288,7 +2290,7 @@ class Comparison(_ComparisonCommon):
             i = self.ignoring(item.name)
             if i:
                 self.logger.log(logging.ERROR,
-                                'Creating comparison using ignored item {0} cause {1}'.format(item.name, i))
+                                'Creating comparison using ignored item %s cause %s', item.name, i)
                 raise sys.exit(1)
 
     def cmp(self):
@@ -2322,19 +2324,19 @@ class Comparison(_ComparisonCommon):
         for comparator in self.comparators:
             if not comparator.applies(self):
                 self.logger.log(logging.DEBUG,
-                                'does not apply - {0} {1}'.format(comparator, self._pair[0].name))
+                                'does not apply - %s %s', comparator, self._pair[0].name)
                 continue
 
             self.logger.log(logging.DEBUG,
-                            'applies - {0} {1}'.format(comparator, self._pair[0].name))
+                            'applies - %s %s', comparator, self._pair[0].name)
             
             result = comparator.cmp(self)
             if result:
-                self.logger.log(logging.DEBUG, '{0} {1}'.format(result.__name__, self.__class__.__name__))
+                self.logger.log(logging.DEBUG, '%s %s', result.__name__, self.__class__.__name__)
                 self.reset()
                 return result
 
-        self.logger.log(INDETERMINATES, 'indeterminate result for {0}'.format([p.name for p in self._pair]))
+        self.logger.log(INDETERMINATES, 'indeterminate result for %s', [p.name for p in self._pair])
         raise IndeterminateResult
 
 @_loggable
@@ -2372,8 +2374,8 @@ class ComparisonList(_ComparisonCommon):
 
                 if cause:
                     self.logger.log(SAMES,
-                                    'ignoring \'{0}\' cause \'{1}\' in {2}'.format(
-                                        fname, cause, self.__class__.__name__))
+                                    'ignoring \'%s\' cause \'%s\' in %s', 
+                                        fname, cause, self.__class__.__name__)
                 else:
                     new_lst.append(fname)
 
@@ -2388,8 +2390,8 @@ class ComparisonList(_ComparisonCommon):
         result = Same
         if not reduce(operator.eq, length):
             self.logger.log(DIFFERENCES,
-                            'Different {0} lists are of different sizes: {1}'.format(
-                                self.__class__.__name__, length))
+                            'Different %s lists are of different sizes: %s', 
+                                self.__class__.__name__, length)
             retval = Different
             if self.exit_asap:
                 return retval
@@ -2403,20 +2405,20 @@ class ComparisonList(_ComparisonCommon):
             c = comparison.cmp()
 
             if not c:
-                self.logger.log(INDETERMINATES, 'Indeterminate {0}'.format(self.__class__.__name__))
+                self.logger.log(INDETERMINATES, 'Indeterminate %s', self.__class__.__name__)
                 raise IndeterminateResult
             else:
                 comparison.reset()
 
             if c is Different:
-                self.logger.log(logging.DEBUG, 'Different {0}'.format(self.__class__.__name__))
+                self.logger.log(logging.DEBUG, 'Different %s', self.__class__.__name__)
                 result = Different
 
                 if self.exit_asap:
                     return result
 
         if result is Same:
-            self.logger.log(SAMES, 'Same {0}'.format(self.__class__.__name__))
+            self.logger.log(SAMES, 'Same %s', self.__class__.__name__)
 
         return result
 
