@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <30-Aug-2013 15:45:52 PDT by rich@noir.com>
+# Time-stamp: <30-Aug-2013 15:49:10 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -243,7 +243,7 @@ DIFFERENCES = logging.WARNING
 SAMES = logging.WARNING - 1
 INDETERMINATES = logging.WARNING - 2
 
-logging.basicConfig(style='{')
+#logging.basicConfig(style='{')
 
 logging.addLevelName(DIFFERENCES, 'differences')
 logging.addLevelName(SAMES, 'sames')
