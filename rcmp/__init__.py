@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <28-Aug-2013 21:41:12 PDT by rich@noir.com>
+# Time-stamp: <30-Aug-2013 15:45:22 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -2047,6 +2047,7 @@ class FailComparator(Comparator):
     @classmethod
     def cmp(cls, comparison):
         cls._log_different(comparison)
+        cls.logger.log(DIFFERENCES, '\n')
         cls._log_unidiffs_comparison(comparison)
 
         return Different
