@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <30-Aug-2013 15:49:10 PDT by rich@noir.com>
+# Time-stamp: <30-Aug-2013 15:59:24 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -1358,7 +1358,7 @@ class ElfComparator(Comparator):
                 rightname = right.name
                 right.write(comparison.pair[1].content)
 
-            rcontent = subprocess.check_output(str('objdump -sfh %s', rightname).split())
+            rcontent = subprocess.check_output(str('objdump -sfh {}'.format(rightname)).split())
             os.remove(rightname)
 
             cls._log_unidiffs([lcontent, rcontent], [i.name for i in comparison.pair])
