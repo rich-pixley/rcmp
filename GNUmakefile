@@ -1,4 +1,4 @@
-# Time-stamp: <28-Aug-2013 14:28:11 PDT by rich@noir.com>
+# Time-stamp: <24-Sep-2013 10:31:53 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -150,7 +150,6 @@ upload_docs docs_upload: ${doctrigger}
 	${setuppy} upload_docs ${pypitest}
 
 supported_versions := \
-	2.6 \
 	2.7 \
 
 bigcheck: ${supported_versions:%=bigcheck-%}
