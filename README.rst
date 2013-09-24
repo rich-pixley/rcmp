@@ -7,8 +7,7 @@ Rcmp is a more flexible file and directory comparison tool.
 Installation
 ============
 
-Go into the ``python`` folder and install the Python modules. You can either
-do it for all users:
+Install the Python modules. You can either do it for all users:
 
 .. code:: console
 
