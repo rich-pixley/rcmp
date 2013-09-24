@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <15-Aug-2013 16:30:58 PDT by ericpix@eussjlx7048.sj.us.am.ericsson.se>
+# Time-stamp: <24-Sep-2013 10:28:16 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -95,7 +95,6 @@ setuptools.setup(
         'License :: OSI Approved :: Apache Software License',
         'Natural Language :: English',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python',
         'Topic :: Software Development :: Libraries :: Python Modules',

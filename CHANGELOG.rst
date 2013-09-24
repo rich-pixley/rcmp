@@ -5,6 +5,8 @@ CHANGELOG
 #########
 
 v0.8
+    - top level cover script uses argparse which was new in 2.7 so
+      drop any claim of 2.6 support.
     - refactored code in order to work within file descriptor and
       memory limits.
     - profiling to chase down gross inefficiencies, (like tarfile's
