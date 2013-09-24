@@ -1,4 +1,4 @@
-# Time-stamp: <24-Sep-2013 10:31:53 PDT by rich@noir.com>
+# Time-stamp: <24-Sep-2013 13:18:36 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -42,7 +42,8 @@ python := ${pythonbin}/python
 
 activate := . ${pythonbin}/activate
 setuppy := ${activate} && python setup.py
-pypitest := -r https://testpypi.python.org/pypi
+#pypi := 
+pypi := -r https://testpypi.python.org/pypi
 
 pydoctor := ${venv}/bin/pydoctor
 
@@ -97,15 +98,15 @@ ${venv}/lib/${vpython}/site-packages/${packagename}.egg-link: setup.py ${python}
 
 .PHONY: bdist_upload
 bdist_upload: ${python} 
-	${setuppy} bdist_egg upload ${pypitest}
+	${setuppy} bdist_egg upload ${pypi}
 
 .PHONY: sdist_upload
 sdist_upload: ${python}
-	${setuppy} sdist --formats=${sdist_format} upload ${pypitest}
+	${setuppy} sdist --formats=${sdist_format} upload ${pypi}
 
 .PHONY: register
 register: ${python}
-	${setuppy} $@ ${pypitest}
+	${setuppy} $@ ${pypi}
 
 long.html: long.rst
 	${setuppy} build
@@ -147,7 +148,7 @@ test: ${python}
 
 .PHONY: docs_upload upload_docs
 upload_docs docs_upload: ${doctrigger}
-	${setuppy} upload_docs ${pypitest}
+	${setuppy} upload_docs ${pypi}
 
 supported_versions := \
 	2.7 \
