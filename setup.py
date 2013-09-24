@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <24-Sep-2013 10:28:16 PDT by rich@noir.com>
+# Time-stamp: <24-Sep-2013 10:38:26 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -67,7 +67,7 @@ if version not in [
 
 setuptools.setup(
     name='rcmp',
-    version='0.7',
+    version='0.8',
     author=me,
     maintainer=me,
     author_email=memail,
