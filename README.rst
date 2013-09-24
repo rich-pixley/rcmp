@@ -19,6 +19,13 @@ Or just for yourself:
 
     $ python setup.py install --user
 
+Unit Tests
+==========
+
+You can run the unit tests using "make check" but this currently
+presupposes some things like a globally installed version of
+virtualenv.
+
 Usage
 =====
 
