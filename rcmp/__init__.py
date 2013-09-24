@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <30-Aug-2013 15:59:24 PDT by rich@noir.com>
+# Time-stamp: <24-Sep-2013 10:12:01 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -261,7 +261,7 @@ pp = pprint.PrettyPrinter()
 # wrapped my brain around metaclasses.
 
 def _loggable(cls):
-    cls.logger = logging.getLogger('{}.{}'.format(__name__, cls.__name__))
+    cls.logger = logging.getLogger('{0}.{1}'.format(__name__, cls.__name__))
     return cls
 
 
@@ -1351,14 +1351,14 @@ class ElfComparator(Comparator):
                 leftname = left.name
                 left.write(comparison.pair[0].content)
 
-            lcontent = subprocess.check_output(str('objdump -sfh {}'.format(leftname)).split())
+            lcontent = subprocess.check_output(str('objdump -sfh {0}'.format(leftname)).split())
             os.remove(leftname)
 
             with tempfile.NamedTemporaryFile(delete=False) as right:
                 rightname = right.name
                 right.write(comparison.pair[1].content)
 
-            rcontent = subprocess.check_output(str('objdump -sfh {}'.format(rightname)).split())
+            rcontent = subprocess.check_output(str('objdump -sfh {0}'.format(rightname)).split())
             os.remove(rightname)
 
             cls._log_unidiffs([lcontent, rcontent], [i.name for i in comparison.pair])
@@ -1692,7 +1692,7 @@ class ZipComparator(ContentOnlyBox):
 
     _myname = 'zip'
 
-    _packer = _Packer('{{}}'.format(_myname))
+    _packer = _Packer('{{0}}'.format(_myname))
 
     @staticmethod
     def _applies(item):
@@ -1945,9 +1945,9 @@ class GzipComparator(Encoder):
 
     _myname = 'gzip'
 
-    _packer = _Packer('{{{}}}'.format(_myname))
+    _packer = _Packer('{{{0}}}'.format(_myname))
 
-    _content_name = '{{{}content}}'.format(_myname)
+    _content_name = '{{{0}content}}'.format(_myname)
 
     @staticmethod
     @contextlib.contextmanager
@@ -1975,9 +1975,9 @@ class BZ2Comparator(Encoder):
 
     _myname = 'bz2'
 
-    _packer = _Packer('{{{}}}'.format(_myname))
+    _packer = _Packer('{{{0}}}'.format(_myname))
 
-    _content_name = '{{{}content}}'.format(_myname)
+    _content_name = '{{{0}content}}'.format(_myname)
 
     # BZ2File didn't become a context manager until 2.7.  :\.
     @staticmethod
@@ -2007,9 +2007,9 @@ class XZComparator(Encoder):
 
     _myname = 'xz'
 
-    _packer = _Packer('{{{}}}'.format(_myname))
+    _packer = _Packer('{{{0}}}'.format(_myname))
 
-    _content_name = '{{{}content}}'.format(_myname)
+    _content_name = '{{{0}content}}'.format(_myname)
 
     @staticmethod
     @contextlib.contextmanager
