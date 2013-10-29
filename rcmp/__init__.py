@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <30-Aug-2013 15:59:24 PDT by rich@noir.com>
+# Time-stamp: <29-Oct-2013 15:28:03 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -1386,6 +1386,19 @@ class ArMemberMetadataComparator(Comparator):
             return False
         else:
             cls._log_different(comparison)
+            diffmsg = ''
+
+            if left.uid != right.uid:
+                diffmsg += '\n uid = {} {}'.format(left.uid, right.uid)
+
+            if left.gid != right.gid:
+                diffmsg += '\n gid = {} {}'.format(left.gid, right.gid)
+
+            if left.mode != right.mode:
+                diffmsg += '\nmode = {} {}'.format(left.mode, right.mode)
+
+            diffmsg += '\n\n'
+            cls.logger.log(DIFFERENCES, diffmsg)
             return Different
 
 
@@ -1473,6 +1486,25 @@ class CpioMemberMetadataComparator(Comparator):
                 return False
         else:
             cls._log_different(comparison)
+            diffmsg = ''
+
+            if left.uid != right.uid:
+                diffmsg += '\n uid = {} {}'.format(left.uid, right.uid)
+
+            if left.gid != right.gid:
+                diffmsg += '\n gid = {} {}'.format(left.gid, right.gid)
+
+            if left.rdevmajor != right.rdevmajor:
+                diffmsg += '\nrdevmajor = {} {}'.format(left.rdevmajor, right.rdevmajor)
+
+            if left.rdevminor != right.rdevminor:
+                diffmsg += '\nrdevminor = {} {}'.format(left.rdevminor, right.rdevminor)
+
+            if left.filesize != right.filesize:
+                diffmsg += '\nfilesize = {} {}'.format(left.filesize, right.filesize)
+
+            diffmsg += '\n\n'
+            cls.logger.log(DIFFERENCES, diffmsg)
             return Different
 
 
@@ -1562,6 +1594,31 @@ class TarMemberMetadataComparator(Comparator):
                 return False
         else:
             cls._log_different(comparison)
+            diffmsg = ''
+
+            if left.mode != right.mode:
+                diffmsg += '\n mode = {} {}'.format(left.mode, right.mode)
+
+            if left.type != right.type:
+                diffmsg += '\n type = {} {}'.format(left.type, right.type)
+
+            if left.linkname != right.linkname:
+                diffmsg += '\n linkname = {} {}'.format(left.linkname, right.linkname)
+
+            if left.uid != right.uid:
+                diffmsg += '\n uid = {} {}'.format(left.uid, right.uid)
+
+            if left.gid != right.gid:
+                diffmsg += '\n gid = {} {}'.format(left.gid, right.gid)
+
+            if left.uname != right.uname:
+                diffmsg += '\nuname = {} {}'.format(left.uname, right.uname)
+
+            if left.gname != right.gname:
+                diffmsg += '\ngname = {} {}'.format(left.gname, right.gname)
+
+            diffmsg += '\n\n'
+            cls.logger.log(DIFFERENCES, diffmsg)
             return Different
 
 
@@ -1895,6 +1952,40 @@ class ZipMemberMetadataComparator(Comparator):
             return False
         else:
             cls._log_different(comparison)
+            diffmsg = ''
+
+            if left.compress_type != right.compress_type:
+                diffmsg += '\n compress_type = {} {}'.format(left.compress_type, right.compress_type)
+
+            if left.comment != right.comment:
+                diffmsg += '\n comment = {} {}'.format(left.comment, right.comment)
+
+            if left.create_system != right.create_system:
+                diffmsg += '\ncreate_system = {} {}'.format(left.create_system, right.create_system)
+
+            if left.create_version != right.create_version:
+                diffmsg += '\ncreate_version = {} {}'.format(left.create_version, right.create_version)
+
+            if left.extract_version != right.extract_version:
+                diffmsg += '\nextract_version = {} {}'.format(left.extract_version, right.extract_version)
+
+            if left.reserved != right.reserved:
+                diffmsg += '\nreserved = {} {}'.format(left.reserved, right.reserved)
+
+            if left.flag_bits != right.flag_bits:
+                diffmsg += '\nflag_bits = {} {}'.format(left.flag_bits, right.flag_bits)
+
+            if left.volume != right.volume:
+                diffmsg += '\nvolume = {} {}'.format(left.volume, right.volume)
+
+            if left.internal_attr != right.internal_attr:
+                diffmsg += '\ninternal_attr = {} {}'.format(left.internal_attr, right.internal_attr)
+
+            if left.external_attr != right.external_attr:
+                diffmsg += '\nexternal_attr = {} {}'.format(left.external_attr, right.external_attr)
+
+            diffmsg += '\n\n'
+            cls.logger.log(DIFFERENCES, diffmsg)
             return Different
 
 
