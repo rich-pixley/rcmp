@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <20-Aug-2013 19:57:50 PDT by rich@noir.com>
+# Time-stamp: <29-Oct-2013 15:48:34 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 #
@@ -69,7 +69,8 @@ def main():
     result = rcmp.Comparison(lname=options.left,
                              rname=options.right,
                              ignores=ignores,
-                             exit_asap=options.exit_asap).cmp()
+                             exit_asap=options.exit_asap,
+                             ignore_ownerships=options.ignore_ownerships).cmp()
 
     return 0 if result == rcmp.Same else 1
 
@@ -96,6 +97,9 @@ def _parse_args():
                         help='Read the named file as ignorefile. [default \'%(default)s\']')
     parser.add_argument('--no-ignores', action='store_const', dest='ignorefiles', const=[],
                         help='reset the list of ignore files')
+
+    parser.add_argument('--ignore-ownerships', default=False, action='store_true',
+                        help='Ignore differences in element ownerships. [default %(default)s]')
 
     parser.add_argument('-v', '--verbose', action='count', help='Be more verbose. (can be repeated)')
 

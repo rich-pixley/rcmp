@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Time-stamp: <29-Oct-2013 15:28:03 PDT by rich@noir.com>
+# Time-stamp: <29-Oct-2013 15:59:20 PDT by rich@noir.com>
 
 # Copyright © 2013 K Richard Pixley
 # Copyright (c) 2010 - 2012 Hewlett-Packard Development Company, L.P.
@@ -893,7 +893,8 @@ class Box(Comparator):
                                                           ritem=ritem,
                                                           comparators=comparison.comparators,
                                                           ignores=comparison.ignores,
-                                                          exit_asap=comparison.exit_asap))
+                                                          exit_asap=comparison.exit_asap,
+                                                          ignore_ownerships=comparison.ignore_ownerships))
             else:
                 cls._no_mate(litem.name, logger)
                 result = Different
@@ -1380,8 +1381,9 @@ class ArMemberMetadataComparator(Comparator):
 
         (left, right) = [i.parent.ar.archived_files[i.shortname].header for i in comparison.pair]
 
-        if (left.uid == right.uid
-            and left.gid == right.gid
+        if ((comparison.ignore_ownerships
+             or (left.uid == right.uid
+                 and left.gid == right.gid))
             and left.mode == right.mode):
             return False
         else:
@@ -1472,8 +1474,9 @@ class CpioMemberMetadataComparator(Comparator):
         (left, right) = [i.parent.cpio.get_member(i.shortname) for i in comparison.pair]
 
         if (left.mode == right.mode
-            and left.uid == right.uid
-            and left.gid == right.gid
+            and (comparison.ignore_ownerships
+                 or (left.uid == right.uid
+                     and left.gid == right.gid))
             and left.rdevmajor == right.rdevmajor
             and left.rdevminor == right.rdevminor
             and left.filesize == right.filesize):
@@ -1581,10 +1584,11 @@ class TarMemberMetadataComparator(Comparator):
         if (left.mode == right.mode
             and left.type == right.type
             and left.linkname == right.linkname
-            and left.uid == right.uid
-            and left.gid == right.gid
-            and left.uname == right.uname
-            and left.gname == right.gname):
+            and (comparison.ignore_ownerships
+                 or (left.uid == right.uid
+                     and left.gid == right.gid
+                     and left.uname == right.uname
+                     and left.gname == right.gname))):
 
             # if the file has no content then we can say conclusively
             # that they are the same at this point.
@@ -2025,7 +2029,8 @@ class Encoder(ContentOnlyBox):
                                      box=cls),
                           comparators=comparison.comparators,
                           ignores=comparison.ignores,
-                          exit_asap=comparison.exit_asap).cmp()
+                          exit_asap=comparison.exit_asap,
+                          ignore_ownerships=comparison.ignore_ownerships).cmp()
 
 @_loggable
 class GzipComparator(Encoder):
@@ -2254,6 +2259,8 @@ class _ComparisonCommon(object):
     :type ignores: list of strings
     :param exit_asap: exit as soon as possible (Indeterminate is always raised asap)
     :type exit_asap: boolean
+    :param ignore_ownerships: ignore differences in element ownerships
+    :type ignore_ownerships: boolean
     """
 
     default_comparators = [
@@ -2290,11 +2297,13 @@ class _ComparisonCommon(object):
     def __init__(self,
                  comparators=False,
                  ignores=[],
-                 exit_asap=False):
+                 exit_asap=False,
+                 ignore_ownerships=False):
 
         self.comparators = comparators if comparators is not False else self.default_comparators
         self.ignores = ignores
         self.exit_asap = exit_asap
+        self.ignore_ownerships=ignore_ownerships
 
 
     def ignoring(self, fname):
@@ -2323,6 +2332,9 @@ class Comparison(_ComparisonCommon):
     exit_asap=False is like "make -k" in the sense that it reports on
     all differences rather than stopping after the first.
 
+    If ignore_ownerships is true, then any differences in element ownerships
+    are ignored.
+
     .. todo:: exit_asap is not currently functional.
 
     :param lname: path name of the first thing, (the leftmost one)
@@ -2335,6 +2347,8 @@ class Comparison(_ComparisonCommon):
     :type ignores: list of strings
     :param exit_asap: exit as soon as possible
     :type exit_asap: boolean
+    :param ignore_ownerships: ignore differences in element ownerships
+    :type ignore_ownerships: boolean
     """
 
     @property
@@ -2362,12 +2376,14 @@ class Comparison(_ComparisonCommon):
                  ritem=False,
                  comparators=False,
                  ignores=[],
-                 exit_asap=False):
+                 exit_asap=False,
+                 ignore_ownerships=False):
 
         _ComparisonCommon.__init__(self,
                                    comparators=comparators,
                                    ignores=ignores,
-                                   exit_asap=exit_asap)
+                                   exit_asap=exit_asap,
+                                   ignore_ownerships=ignore_ownerships)
 
         if rname and not ritem:
             ritem = Items.find_or_create(rname, root, DirComparator)
@@ -2451,11 +2467,13 @@ class ComparisonList(_ComparisonCommon):
                  stuff,
                  comparators=False,
                  ignores=[],
-                 exit_asap=False):
+                 exit_asap=False,
+                 ignore_ownerships=False):
         _ComparisonCommon.__init__(self,
                                    comparators=comparators,
                                    ignores=ignores,
-                                   exit_asap=exit_asap)
+                                   exit_asap=exit_asap,
+                                   ignore_ownerships=ignore_ownerships)
 
         self.stuff = []
         for lst in stuff:
@@ -2493,7 +2511,8 @@ class ComparisonList(_ComparisonCommon):
                                     ritem=Items.find_or_create(self.stuff[1][i], root),
                                     comparators=self.comparators,
                                     ignores=self.ignores,
-                                    exit_asap=self.exit_asap)
+                                    exit_asap=self.exit_asap,
+                                    ignore_ownerships=self.ignore_ownerships)
             c = comparison.cmp()
 
             if not c:
